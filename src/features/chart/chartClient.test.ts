@@ -2,8 +2,11 @@
 import { describe, it, expect } from 'vitest';
 import { fetchDaily, fetchIntraday } from '../../lib/chartClient';
 
-function fakeFetch(text: string) {
-  return async () => ({ ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) }) as any;
+function fakeFetch(text: string, seen?: string[]) {
+  return async (url: string) => {
+    seen?.push(url);
+    return { ok: true, status: 200, text: async () => text, json: async () => JSON.parse(text) } as any;
+  }
 }
 
 describe('fetchIntraday', () => {
@@ -15,6 +18,13 @@ describe('fetchIntraday', () => {
     const r = await fetchIntraday('sh600000', fakeFetch(json));
     expect(r[0]).toEqual({ time: '09:30', price: 11.05 });
     expect(r[1].time).toBe('09:31');
+  });
+
+  it('用户只输 6 位代码时请求自动补交易所前缀', async () => {
+    const seen: string[] = [];
+    const json = JSON.stringify([['2024-01-02 09:30', '11.05', '11.03', 100]]);
+    await fetchIntraday('601929', fakeFetch(json, seen));
+    expect(seen[0]).toContain('symbol%3Dsh601929'); // 经 CORS 代理包装，"=" 被编码为 %3D
   });
 
   it('非 200 抛错', async () => {
@@ -33,6 +43,13 @@ describe('fetchDaily', () => {
     expect(r.length).toBe(2);
     expect(r[0]).toMatchObject({ date: '2024-01-02', open: 11.0, close: 11.1 });
     expect(r[1].volume).toBe(1200);
+  });
+
+  it('用户只输 6 位代码时请求自动补交易所前缀', async () => {
+    const seen: string[] = [];
+    const json = JSON.stringify([['2024-01-02', '11.00', '11.20', '10.90', '11.10', 1000]]);
+    await fetchDaily('601929', fakeFetch(json, seen));
+    expect(seen[0]).toContain('symbol%3Dsh601929'); // 经 CORS 代理包装，"=" 被编码为 %3D
   });
 
   it('非 200 抛错', async () => {

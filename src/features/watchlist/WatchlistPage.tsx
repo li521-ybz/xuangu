@@ -1,6 +1,7 @@
 // 模块① 自选股看板页（阶段2 接入行情单元格 + 手动刷新）
 import { useMemo, useState } from 'react';
 import type { StockRepository } from '../../lib/repository';
+import { bareSymbol } from '../../lib/symbol';
 import { groupsOf, useWatchlist } from './useWatchlist';
 import { AddStockModal } from './AddStockModal';
 import { useQuotes } from '../quotes/useQuotes';
@@ -82,7 +83,7 @@ export function WatchlistPage({ repo, onSelect, onOpenSettings }: Props) {
             >
               <span className="stock-name">{s.name}</span>
               <span className="stock-symbol">{s.symbol}</span>
-              <QuotesCell quote={quotes[s.symbol]} />
+              <QuotesCell quote={quotes[bareSymbol(s.symbol)]} />
               <button
                 aria-label={`删除 ${s.name}`}
                 className="row-del"

@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from 'react';
 import type { Quote } from '../../lib/types';
 import { fetchQuotes } from '../../lib/quotesClient';
 import { safeFetch } from '../../lib/fetchSafe';
+import { bareSymbol } from '../../lib/symbol';
 
 export function useQuotes(symbols: string[], fetchImpl: typeof fetch = safeFetch) {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
@@ -23,7 +24,9 @@ export function useQuotes(symbols: string[], fetchImpl: typeof fetch = safeFetch
       const res = await fetchQuotes(symbols, fetchImpl);
       const map: Record<string, Quote> = {};
       res.quotes.forEach((q) => {
-        map[q.symbol] = q;
+        // 上游返回带交易所前缀（sh601929），本地键统一用纯代码（601929），
+        // 用户当初输没输前缀都能匹配上
+        map[bareSymbol(q.symbol)] = q;
       });
       setQuotes(map);
       setDegraded(!!res.degraded);

@@ -2,10 +2,12 @@
 import { describe, it, expect } from 'vitest';
 import { fetchQuotes } from '../../lib/quotesClient';
 
-function fakeFetch(text: string) {
+function fakeFetch(text: string, seen?: string[]) {
   const buf = new TextEncoder().encode(text).buffer;
-  return async () =>
-    ({ ok: true, status: 200, arrayBuffer: async () => buf, text: async () => text, json: async () => JSON.parse(text) }) as any;
+  return async (url: string) => {
+    seen?.push(url);
+    return { ok: true, status: 200, arrayBuffer: async () => buf, text: async () => text, json: async () => JSON.parse(text) } as any;
+  };
 }
 
 describe('fetchQuotes', () => {
@@ -22,6 +24,16 @@ describe('fetchQuotes', () => {
     expect(r.quotes[0].name).toBe('PUFA');
     expect(r.quotes[0].price).toBeCloseTo(11.05);
     expect(r.quotes[0].prevClose).toBeCloseTo(11.3);
+  });
+
+  it('用户只输 6 位代码时请求自动补交易所前缀', async () => {
+    // 601929 是上交所股票，腾讯接口只认 sh601929——必须补前缀否则「暂无数据」
+    const seen: string[] = [];
+    const line = 'v_sh601929="601929~JISHI~11.20~11.05~11.00~11.30~10.90~11.20"';
+    const r = await fetchQuotes(['601929'], fakeFetch(line, seen));
+    expect(seen[0]).toContain('q%3Dsh601929'); // 经 CORS 代理包装，"=" 被编码为 %3D
+    expect(r.quotes[0].symbol).toBe('sh601929');
+    expect(r.degraded).toBe(false);
   });
 
   it('部分解析失败标记 degraded', async () => {

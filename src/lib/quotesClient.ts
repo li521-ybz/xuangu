@@ -3,6 +3,7 @@ import type { Quote } from './types';
 import { parseQuotesBatch } from '../worker/parse';
 import { corsProxyUrl } from './proxyUrl';
 import { safeFetch } from './fetchSafe';
+import { normalizeSymbol } from './symbol';
 
 export interface QuotesResponse {
   quotes: Quote[];
@@ -24,7 +25,10 @@ export async function fetchQuotes(
   fetchImpl: typeof fetch = safeFetch
 ): Promise<QuotesResponse> {
   if (symbols.length === 0) return { quotes: [] };
-  const target = `https://qt.gtimg.cn/q=${encodeURIComponent(symbols.join(','))}`;
+  // 用户可能只输 6 位代码（601929），上游要求带交易所前缀（sh601929）——请求前统一补全
+  const target = `https://qt.gtimg.cn/q=${encodeURIComponent(
+    symbols.map(normalizeSymbol).join(',')
+  )}`;
   const res = await fetchImpl(corsProxyUrl(target));
   if (!res.ok) throw new Error(`行情代理返回 ${res.status}`);
   const text = await readGbk(res);
