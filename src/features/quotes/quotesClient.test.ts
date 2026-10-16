@@ -17,27 +17,28 @@ describe('fetchQuotes', () => {
   });
 
   it('解析腾讯原始行为 Quote[]', async () => {
-    // 腾讯格式 v_代码="代码~名称~今开~当前~昨收~..."（解析器取 f[1] 为名称；此处用 ASCII 避免多字节）
-    const line = 'v_sh600000="600000~PUFA~11.20~11.05~11.00~11.30~10.90~11.20"';
+    // 真实字段序（2026-10-16 实测）：1~名称~代码~当前价~昨收~今开~...
+    const line = 'v_sh600000="1~PUFA~600000~11.05~11.20~11.30~11.00~10.90~11.20"';
     const r = await fetchQuotes(['sh600000'], fakeFetch(line));
     expect(r.quotes[0].symbol).toBe('sh600000');
     expect(r.quotes[0].name).toBe('PUFA');
     expect(r.quotes[0].price).toBeCloseTo(11.05);
-    expect(r.quotes[0].prevClose).toBeCloseTo(11.3);
+    expect(r.quotes[0].prevClose).toBeCloseTo(11.2); // f[4] 昨收
   });
 
   it('用户只输 6 位代码时请求自动补交易所前缀', async () => {
     // 601929 是上交所股票，腾讯接口只认 sh601929——必须补前缀否则「暂无数据」
     const seen: string[] = [];
-    const line = 'v_sh601929="601929~JISHI~11.20~11.05~11.00~11.30~10.90~11.20"';
+    const line = 'v_sh601929="1~JISHI~601929~2.48~2.53~2.56~3101671~1506194"';
     const r = await fetchQuotes(['601929'], fakeFetch(line, seen));
     expect(seen[0]).toContain('qt.gtimg.cn/q=sh601929'); // 直连腾讯，无代理包装
     expect(r.quotes[0].symbol).toBe('sh601929');
+    expect(r.quotes[0].prevClose).toBeCloseTo(2.53);
     expect(r.degraded).toBe(false);
   });
 
   it('部分解析失败标记 degraded', async () => {
-    const line = 'v_sh600000="PUFA~sh600000~11.20~11.05~11.00~11.30~10.90~11.20"';
+    const line = 'v_sh600000="1~PUFA~600000~11.05~11.20~11.30~11.00~10.90~11.20"';
     const r = await fetchQuotes(['sh600000', 'sh600001'], fakeFetch(line));
     expect(r.quotes.length).toBe(1);
     expect(r.degraded).toBe(true);

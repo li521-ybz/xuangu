@@ -18,20 +18,31 @@ export function parseSinaLine(line: string): Quote | null {
   return { symbol, name, price, prevClose, change, changePct, time: f[30] || undefined };
 }
 
-/** 腾讯实时行情：v_sh600000="名称~代码~当前~今开~昨收~..."（~ 分隔） */
+/**
+ * 腾讯实时行情：v_sh600000="1~名称~代码~当前价~昨收~今开~成交量(手)~成交额(万)~...~时间~涨跌额~涨跌幅%~最高~最低~..."
+ * 字段位次经 2026-10-16 真实返回校验：[3]=当前价、[4]=昨收、[5]=今开、[30]=时间、[31]=涨跌额、[32]=涨跌幅%；
+ * 涨跌额/涨跌幅优先采用腾讯自带字段（分母即昨收，与行情软件一致）。
+ */
 export function parseTencentLine(line: string): Quote | null {
   const m = line.match(/v_(\w+)="([^"]*)"/);
   if (!m) return null;
   const symbol = m[1];
   const f = m[2].split('~');
-  if (f.length < 6 || f[3] === '' || f[5] === '') return null;
+  if (f.length < 6 || f[3] === '' || f[4] === '') return null;
   const name = f[1] || symbol;
   const price = Number(f[3]);
-  const prevClose = Number(f[5]);
+  const prevClose = Number(f[4]);
   if (!isFinite(prevClose) || !isFinite(price)) return null;
-  const change = price - prevClose;
-  const changePct = prevClose !== 0 ? (change / prevClose) * 100 : 0;
+  const change = numOr(f[31], price - prevClose);
+  const changePct = numOr(f[32], prevClose !== 0 ? (change / prevClose) * 100 : 0);
   return { symbol, name, price, prevClose, change, changePct, time: f[30] || undefined };
+}
+
+/** 取字段数值，空值/非法时回退 */
+function numOr(raw: string | undefined, fallback: number): number {
+  if (raw === undefined || raw === '') return fallback;
+  const n = Number(raw);
+  return isFinite(n) ? n : fallback;
 }
 
 /** 批量解析（支持多行原始文本，自动识别新浪/腾讯） */

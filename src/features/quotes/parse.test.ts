@@ -4,7 +4,9 @@ import { parseSinaLine, parseTencentLine, parseQuotesBatch } from '../../worker/
 
 const SINA =
   'var hq_str_sh600000="浦发银行,11.05,11.00,11.20,11.30,10.90,11.20,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,2024-01-01 15:00:00"';
-const TENCENT = 'v_sh600000="浦发银行~600000~11.05~11.20~11.30~11.00~10.90~11.20"';
+// 真实字段序（2026-10-16 实测）：1~名称~代码~当前价~昨收~今开~...~[30]时间~[31]涨跌额~[32]涨跌幅%~[33]最高~[34]最低
+const TENCENT =
+  'v_sh600000="1~PUFA~600000~11.05~11.20~11.30~922942~577708~345234~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~0~~20240101161500~-0.15~-1.33~11.30~10.90~0~0~0~0~0"';
 
 describe('parseSinaLine', () => {
   it('上涨：红（change>0）', () => {
@@ -30,12 +32,23 @@ describe('parseSinaLine', () => {
 });
 
 describe('parseTencentLine', () => {
-  it('解析腾讯行情并算涨跌', () => {
+  it('按真实字段位次解析：昨收取 f[4]（今开是 f[5]，曾误取导致涨跌幅算错）', () => {
     const q = parseTencentLine(TENCENT)!;
     expect(q.symbol).toBe('sh600000');
-    expect(q.price).toBe(11.2);
-    expect(q.prevClose).toBe(11.0);
-    expect(q.change).toBeCloseTo(0.2);
+    expect(q.name).toBe('PUFA');
+    expect(q.price).toBe(11.05);
+    expect(q.prevClose).toBe(11.2); // f[4] 昨收（不是 f[5] 今开 11.30）
+    // 优先采用腾讯自带涨跌字段
+    expect(q.change).toBeCloseTo(-0.15);
+    expect(q.changePct).toBeCloseTo(-1.33);
+  });
+
+  it('缺失自带涨跌字段时自算（分母为昨收）', () => {
+    const short = 'v_sh600000="1~浦发银行~600000~11.05~11.20~11.30"';
+    const q = parseTencentLine(short)!;
+    expect(q.prevClose).toBe(11.2);
+    expect(q.change).toBeCloseTo(-0.15);
+    expect(q.changePct).toBeCloseTo((-0.15 / 11.2) * 100);
   });
 });
 
