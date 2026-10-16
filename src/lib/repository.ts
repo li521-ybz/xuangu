@@ -39,7 +39,7 @@ export class InMemoryStockRepository implements StockRepository {
     const stock: Stock = {
       id: newId(),
       symbol,
-      name: input.name.trim() || symbol,
+      name: input.name?.trim() || symbol,
       group: input.group?.trim() || DEFAULT_GROUP
     };
     this.stocks.push(stock);
@@ -54,5 +54,59 @@ export class InMemoryStockRepository implements StockRepository {
     const s = this.stocks.find((x) => x.id === id);
     if (!s) throw new Error('未找到该自选股');
     s.group = group;
+  }
+}
+
+const LS_KEY = 'xuangu.stocks.v1';
+
+/**
+ * 本地持久化实现：无令牌时的默认仓库。
+ * 数据存浏览器 localStorage，刷新/重开页面不丢；录入 GitHub 令牌后自动切换为 Gist 跨设备同步。
+ */
+export class LocalStorageStockRepository implements StockRepository {
+  private read(): Stock[] {
+    try {
+      const raw = typeof localStorage !== 'undefined' ? localStorage.getItem(LS_KEY) : null;
+      if (!raw) return [];
+      const arr = JSON.parse(raw);
+      return Array.isArray(arr) ? arr : [];
+    } catch {
+      return [];
+    }
+  }
+
+  private write(stocks: Stock[]): void {
+    try {
+      if (typeof localStorage !== 'undefined') localStorage.setItem(LS_KEY, JSON.stringify(stocks));
+    } catch {
+      /* 隐私模式/配额满：静默降级为内存 */
+    }
+  }
+
+  async list(): Promise<Stock[]> {
+    return this.read();
+  }
+
+  async add(input: AddStockInput): Promise<Stock> {
+    const symbol = input.symbol.trim();
+    if (!symbol) throw new Error('股票代码不能为空');
+    const stock: Stock = {
+      id: newId(),
+      symbol,
+      name: input.name?.trim() || symbol,
+      group: input.group?.trim() || DEFAULT_GROUP
+    };
+    const next = [...this.read(), stock];
+    this.write(next);
+    return stock;
+  }
+
+  async remove(id: string): Promise<void> {
+    this.write(this.read().filter((s) => s.id !== id));
+  }
+
+  async setGroup(id: string, group: string): Promise<void> {
+    const next = this.read().map((s) => (s.id === id ? { ...s, group } : s));
+    this.write(next);
   }
 }
