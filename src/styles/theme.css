@@ -165,6 +165,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
+  /* 必须显式设 z-index：ECharts 画布容器（zrender createRoot）是 position:relative 的定位元素，
+     与 z-index:auto 的本弹窗同层、按 DOM 顺序绘制；图表在详情页（DOM 上后于看板）会盖住弹窗，
+     表现为「打开分时图后无法添加股票」——输入框/按钮被画布挡住，点击与聚焦全部失效（踩坑 #20）。
+     设 z-index 后弹窗进入正层级绘制层，稳定压过画布。两个弹窗（添加/设置）共用此类，一并生效。 */
+  z-index: 1000;
 }
 .modal {
   background: #fff;
