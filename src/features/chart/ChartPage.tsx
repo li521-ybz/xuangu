@@ -1,11 +1,9 @@
 // 模块③ 个股详情页：头部（价格/涨跌幅）+ 分时图(上) + 日K(下) 同屏常显 + 周期 Tab
 import { useEffect, useState } from 'react';
 import type { Candle, IntradayPoint, Quote } from '../../lib/types';
-import { fetchDaily, fetchIntraday } from '../../lib/chartClient';
+import { fetchDaily, fetchIntraday, type KlinePeriod } from '../../lib/chartClient';
 import { ChartCanvas } from './ChartCanvas';
 import { changeText, pctText, quoteClass } from '../../lib/format';
-
-type Period = 'day' | 'week' | 'month';
 
 interface Props {
   symbol: string;
@@ -15,26 +13,37 @@ interface Props {
 export function ChartPage({ symbol, quote }: Props) {
   const [intraday, setIntraday] = useState<IntradayPoint[]>([]);
   const [candles, setCandles] = useState<Candle[]>([]);
-  const [period, setPeriod] = useState<Period>('day');
+  const [period, setPeriod] = useState<KlinePeriod>('day');
 
+  // 分时与日K：symbol 变化时拉取（各抓各的错，互不影响）
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      fetchIntraday(symbol).catch(() => [] as IntradayPoint[]),
-      fetchDaily(symbol).catch(() => [] as Candle[])
-    ])
-      .then(([id, dl]) => {
-        if (!alive) return;
-        setIntraday(id);
-        setCandles(dl);
+    fetchIntraday(symbol)
+      .then((id) => {
+        if (alive) setIntraday(id);
       })
       .catch(() => {
-        /* 保持空，UI 显示暂无数据 */
+        if (alive) setIntraday([]);
       });
     return () => {
       alive = false;
     };
   }, [symbol]);
+
+  // K 线：symbol 或周期（日/周/月）变化时重新拉取
+  useEffect(() => {
+    let alive = true;
+    fetchDaily(symbol, period)
+      .then((dl) => {
+        if (alive) setCandles(dl);
+      })
+      .catch(() => {
+        if (alive) setCandles([]);
+      });
+    return () => {
+      alive = false;
+    };
+  }, [symbol, period]);
 
   return (
     <section className="detail" aria-label="个股详情">
@@ -61,7 +70,7 @@ export function ChartPage({ symbol, quote }: Props) {
       {/* 日K：常显（下），周期 Tab 切换 日K/周K/月K */}
       <div className="chart-block" data-testid="kline-chart">
         <div className="period-tabs" role="tablist" aria-label="K线周期">
-          {(['day', 'week', 'month'] as Period[]).map((p) => (
+          {(['day', 'week', 'month'] as KlinePeriod[]).map((p) => (
             <button
               key={p}
               role="tab"

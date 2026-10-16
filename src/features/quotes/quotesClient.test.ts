@@ -31,7 +31,7 @@ describe('fetchQuotes', () => {
     const seen: string[] = [];
     const line = 'v_sh601929="601929~JISHI~11.20~11.05~11.00~11.30~10.90~11.20"';
     const r = await fetchQuotes(['601929'], fakeFetch(line, seen));
-    expect(seen[0]).toContain('q%3Dsh601929'); // 经 CORS 代理包装，"=" 被编码为 %3D
+    expect(seen[0]).toContain('qt.gtimg.cn/q=sh601929'); // 直连腾讯，无代理包装
     expect(r.quotes[0].symbol).toBe('sh601929');
     expect(r.degraded).toBe(false);
   });

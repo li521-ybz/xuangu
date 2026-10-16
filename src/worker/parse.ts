@@ -1,5 +1,5 @@
-// 行情/图表数据解析：Workers 代理使用（上游免费接口原始文本 -> 领域对象）
-// 注意：字段位置依据公开文档；集成阶段用真实接口返回校验一次即可。
+// 行情/图表数据解析：上游（腾讯，直连免代理）原始文本 -> 领域对象
+// 注意：字段位置依据 2026-10-16 真实接口返回校验；接口变更时先用 curl 核对再改这里。
 import type { Candle, IntradayPoint, Quote } from '../lib/types';
 
 /** 新浪实时行情：var hq_str_sh600000="名称,今开,昨收,当前,最高,最低,..." */
@@ -44,65 +44,72 @@ export function parseQuotesBatch(raw: string): Quote[] {
     .filter((q): q is Quote => q !== null);
 }
 
-/** 新浪日 K：每行 date,open,high,low,close,volume */
-export function parseSinaDaily(text: string): Candle[] {
-  return text
-    .split('\n')
-    .map((l) => l.trim())
-    .filter(Boolean)
-    .map((l) => l.split(','))
-    .filter((p) => p.length >= 6 && p[0])
-    .map((p) => ({
-      date: p[0],
-      open: Number(p[1]),
-      high: Number(p[2]),
-      low: Number(p[3]),
-      close: Number(p[4]),
-      volume: Number(p[5])
-    }))
-    .filter((c) => [c.open, c.high, c.low, c.close].every(isFinite));
-}
-
-/** 新浪日 K（JSON）：getKLineData 返回 [[ "YYYY-MM-DD", open, high, low, close, volume ], ...] */
-export function parseSinaDailyJson(text: string): Candle[] {
-  let arr: unknown;
+/**
+ * 腾讯 K 线（fqkline/get）：{"code":0,"data":{"sh601929":{"qfqday":[[日期,开,收,高,低,量],...]}}}
+ * 注意字段序是「日期,开,收,高,低,量」——第三位是收盘、第四位是最高（与新浪相反）。
+ * key 名：day/week/month 或 qfq 前缀（前复权）；period 为 day|week|month。
+ */
+export function parseTencentKline(
+  jsonText: string,
+  period: 'day' | 'week' | 'month' = 'day'
+): Candle[] {
+  let obj: unknown;
   try {
-    arr = JSON.parse(text);
+    obj = JSON.parse(jsonText);
   } catch {
     return [];
   }
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .map((row) => (Array.isArray(row) ? (row as unknown[]) : null))
-    .filter((r): r is unknown[] => r !== null && r.length >= 6)
-    .map((r) => ({
-      date: String(r[0]),
-      open: Number(r[1]),
-      high: Number(r[2]),
-      low: Number(r[3]),
-      close: Number(r[4]),
-      volume: Number(r[5])
-    }))
-    .filter((c) => [c.open, c.high, c.low, c.close].every(isFinite));
+  const data = (obj as { data?: Record<string, Record<string, unknown>> })?.data;
+  if (!data) return [];
+  const out: Candle[] = [];
+  for (const sym of Object.keys(data)) {
+    const keys = data[sym];
+    const rows = (keys[`qfq${period}`] ?? keys[period]) as unknown;
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (!Array.isArray(row) || row.length < 6) continue;
+      const candle: Candle = {
+        date: String(row[0]),
+        open: Number(row[1]),
+        close: Number(row[2]),
+        high: Number(row[3]),
+        low: Number(row[4]),
+        volume: Number(row[5])
+      };
+      if ([candle.open, candle.high, candle.low, candle.close].every(isFinite)) {
+        out.push(candle);
+      }
+    }
+  }
+  // K 线按时间正序（接口返回正序；防御性排序保证）
+  return out.sort((a, b) => a.date.localeCompare(b.date));
 }
 
-/** 新浪分时：JSON 数组 [[ "YYYY-MM-DD HH:MM", price, avg, volume ], ...] */
-export function parseSinaIntraday(jsonText: string): IntradayPoint[] {
-  let arr: unknown;
+/**
+ * 腾讯分时（minute/query）：{"code":0,"data":{"sh601929":{"data":{"data":["0930 2.56 20509 5250304.00",...]}}}}
+ * 每条：HHmm 价格 成交量(手) 成交额；time 输出 HH:MM。
+ */
+export function parseTencentMinute(jsonText: string): IntradayPoint[] {
+  let obj: unknown;
   try {
-    arr = JSON.parse(jsonText);
+    obj = JSON.parse(jsonText);
   } catch {
     return [];
   }
-  if (!Array.isArray(arr)) return [];
-  return arr
-    .map((row) => (Array.isArray(row) ? (row as unknown[]) : null))
-    .filter((r): r is unknown[] => r !== null && r.length >= 2)
-    .map((r) => {
-      const ts = String(r[0]);
-      const price = Number(r[1]);
-      const hhmm = ts.includes(' ') ? ts.split(' ')[1] : ts;
-      return { time: hhmm, price };
-    })
-    .filter((p) => isFinite(p.price));
+  const data = (obj as { data?: Record<string, { data?: { data?: unknown } }> })?.data;
+  if (!data) return [];
+  const out: IntradayPoint[] = [];
+  for (const sym of Object.keys(data)) {
+    const rows = data[sym]?.data?.data;
+    if (!Array.isArray(rows)) continue;
+    for (const row of rows) {
+      if (typeof row !== 'string') continue;
+      const f = row.trim().split(/\s+/);
+      if (f.length < 2 || f[0].length < 4) continue;
+      const price = Number(f[1]);
+      if (!isFinite(price)) continue;
+      out.push({ time: `${f[0].slice(0, 2)}:${f[0].slice(2, 4)}`, price });
+    }
+  }
+  return out;
 }

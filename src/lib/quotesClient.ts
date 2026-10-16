@@ -1,7 +1,7 @@
-// 行情客户端：模块② 浏览器经公共 CORS 代理直连腾讯行情（替代 Cloudflare Workers /api/quotes）
+// 行情客户端：模块② 浏览器直连腾讯实时行情（qt.gtimg.cn 自带 Access-Control-Allow-Origin: *，
+// 无需 CORS 代理；2026-10-16 实测 corsproxy.io 已改为要 API key，故全量直连）
 import type { Quote } from './types';
 import { parseQuotesBatch } from '../worker/parse';
-import { corsProxyUrl } from './proxyUrl';
 import { safeFetch } from './fetchSafe';
 import { normalizeSymbol } from './symbol';
 
@@ -29,7 +29,7 @@ export async function fetchQuotes(
   const target = `https://qt.gtimg.cn/q=${encodeURIComponent(
     symbols.map(normalizeSymbol).join(',')
   )}`;
-  const res = await fetchImpl(corsProxyUrl(target));
+  const res = await fetchImpl(target);
   if (!res.ok) throw new Error(`行情代理返回 ${res.status}`);
   const text = await readGbk(res);
   const quotes = parseQuotesBatch(text);

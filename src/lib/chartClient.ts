@@ -1,30 +1,38 @@
-// 图表客户端：模块③ 浏览器经公共 CORS 代理直连新浪 K 线（替代 Cloudflare Workers /api/intraday|/api/daily）
+// 图表客户端：模块③ 浏览器直连腾讯 K 线 / 分时（腾讯接口自带 Access-Control-Allow-Origin: *，
+// 无需 CORS 代理；2026-10-16 实测 corsproxy.io 已改为要 API key，allorigins/codetabs 国内不稳，故全量直连）
 import type { Candle, IntradayPoint } from './types';
-import { parseSinaDailyJson, parseSinaIntraday } from '../worker/parse';
-import { corsProxyUrl } from './proxyUrl';
+import { parseTencentKline, parseTencentMinute } from '../worker/parse';
 import { safeFetch } from './fetchSafe';
 import { normalizeSymbol } from './symbol';
 
-const SINA_KLINE = (symbol: string, scale: number) =>
-  `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=${encodeURIComponent(
+export type KlinePeriod = 'day' | 'week' | 'month';
+
+/** 腾讯 K 线：param=代码,周期,,,条数,qfq（前复权） */
+const TX_KLINE = (symbol: string, period: KlinePeriod) =>
+  `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
     symbol
-  )}&scale=${scale}&ma=5&datalen=320`;
+  )},${period},,,320,qfq`;
+
+/** 腾讯分时：当日每分钟一个点 */
+const TX_MINUTE = (symbol: string) =>
+  `https://web.ifzq.gtimg.cn/appstock/app/minute/query?code=${encodeURIComponent(symbol)}`;
 
 export async function fetchIntraday(
   symbol: string,
   fetchImpl: typeof fetch = safeFetch
 ): Promise<IntradayPoint[]> {
   // 用户可能只输 6 位代码，上游要求带交易所前缀——请求前统一补全
-  const res = await fetchImpl(corsProxyUrl(SINA_KLINE(normalizeSymbol(symbol), 5)));
-  if (!res.ok) throw new Error(`分时代理返回 ${res.status}`);
-  return parseSinaIntraday(await res.text());
+  const res = await fetchImpl(TX_MINUTE(normalizeSymbol(symbol)));
+  if (!res.ok) throw new Error(`分时接口返回 ${res.status}`);
+  return parseTencentMinute(await res.text());
 }
 
 export async function fetchDaily(
   symbol: string,
+  period: KlinePeriod = 'day',
   fetchImpl: typeof fetch = safeFetch
 ): Promise<Candle[]> {
-  const res = await fetchImpl(corsProxyUrl(SINA_KLINE(normalizeSymbol(symbol), 240)));
-  if (!res.ok) throw new Error(`日K代理返回 ${res.status}`);
-  return parseSinaDailyJson(await res.text());
+  const res = await fetchImpl(TX_KLINE(normalizeSymbol(symbol), period));
+  if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
+  return parseTencentKline(await res.text(), period);
 }
