@@ -1,0 +1,68 @@
+// 模块① 添加自选弹层
+import { useState } from 'react';
+import type { GroupName } from '../../lib/types';
+
+interface Props {
+  groups: GroupName[];
+  onAdd: (input: { symbol: string; name: string; group?: string }) => Promise<void> | void;
+  onClose: () => void;
+}
+
+export function AddStockModal({ groups, onAdd, onClose }: Props) {
+  const [symbol, setSymbol] = useState('');
+  const [name, setName] = useState('');
+  const [group, setGroup] = useState<GroupName>(groups.includes('观察') ? '观察' : groups[0] ?? '观察');
+  const [busy, setBusy] = useState(false);
+
+  async function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!symbol.trim()) return;
+    setBusy(true);
+    try {
+      await onAdd({ symbol: symbol.trim(), name: name.trim(), group });
+      onClose();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="添加自选">
+      <form className="modal" onSubmit={submit}>
+        <h3>添加自选股</h3>
+        <label>
+          代码
+          <input
+            aria-label="股票代码"
+            value={symbol}
+            onChange={(e) => setSymbol(e.target.value)}
+            placeholder="如 sh600000"
+            autoFocus
+          />
+        </label>
+        <label>
+          名称（可选）
+          <input aria-label="股票名称" value={name} onChange={(e) => setName(e.target.value)} />
+        </label>
+        <label>
+          分组
+          <select aria-label="分组" value={group} onChange={(e) => setGroup(e.target.value)}>
+            {groups.map((g) => (
+              <option key={g} value={g}>
+                {g}
+              </option>
+            ))}
+          </select>
+        </label>
+        <div className="modal-actions">
+          <button type="button" onClick={onClose}>
+            取消
+          </button>
+          <button type="submit" disabled={busy || !symbol.trim()}>
+            添加
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}

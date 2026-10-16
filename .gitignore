@@ -1,0 +1,16 @@
+# 依赖与构建缓存
+node_modules/
+.tmp/
+dist/
+*.local
+
+# 环境密钥（切勿提交真实令牌）
+.env
+.env.local
+.env.*.local
+
+# 编辑器/系统
+.vscode/
+.idea/
+.DS_Store
+*.log

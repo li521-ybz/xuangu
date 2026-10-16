@@ -1,0 +1,179 @@
+/* 浅色主题（阶段2 确认）：红涨绿跌 */
+:root {
+  --bg: #ffffff;
+  --fg: #1f2329;
+  --muted: #8a8f99;
+  --line: #eceef2;
+  --up: #e23c3c; /* 涨：红 */
+  --down: #1ba784; /* 跌：绿 */
+  --flat: #8a8f99;
+  --accent: #2f6bff;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+}
+
+.app {
+  display: flex;
+  min-height: 100vh;
+}
+
+/* 宽屏双栏：左列表 + 右详情（阶段3 布局） */
+.app.wide {
+  flex-direction: row;
+}
+.app.narrow {
+  flex-direction: column;
+}
+
+.watchlist {
+  flex: 1 1 320px;
+  max-width: 420px;
+  border-right: 1px solid var(--line);
+  padding: 12px;
+}
+
+.watchlist-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+.watchlist-tools button {
+  margin-left: 8px;
+}
+
+.group-tabs {
+  display: flex;
+  gap: 8px;
+  margin: 12px 0;
+  flex-wrap: wrap;
+}
+.group-tabs .tab {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 16px;
+  padding: 4px 12px;
+  cursor: pointer;
+}
+.group-tabs .tab.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+.stock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stock-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 10px 8px;
+  border-bottom: 1px solid var(--line);
+  cursor: pointer;
+}
+.stock-name {
+  font-weight: 600;
+}
+.stock-symbol {
+  color: var(--muted);
+  font-size: 12px;
+}
+.row-del {
+  margin-left: auto;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+}
+
+/* 行情单元格 */
+.quote {
+  margin-left: auto;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.quote-price {
+  display: block;
+  font-weight: 600;
+}
+.quote-pct {
+  font-size: 12px;
+}
+.quote-up {
+  color: var(--up);
+}
+.quote-down {
+  color: var(--down);
+}
+.quote-flat,
+.quote-empty {
+  color: var(--flat);
+}
+
+.error {
+  color: var(--up);
+}
+.loading,
+.empty {
+  color: var(--muted);
+}
+
+/* 详情页（阶段3） */
+.detail {
+  flex: 1 1 auto;
+  padding: 12px;
+}
+.detail-head .price {
+  font-size: 28px;
+  font-weight: 700;
+}
+.detail-head.up .price {
+  color: var(--up);
+}
+.detail-head.down .price {
+  color: var(--down);
+}
+.chart-block {
+  margin-top: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 8px;
+}
+.period-tabs button.active {
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* 弹层 */
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.3);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  width: 280px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
