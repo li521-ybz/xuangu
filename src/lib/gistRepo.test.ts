@@ -1,5 +1,5 @@
 // GistStockRepository 单测：用内存态假 Gist 服务，覆盖建/读/删/改组/报错
-import { describe, it, expect } from 'vitest';
+import { describe, it, expect, vi } from 'vitest';
 import { GistStockRepository, verifyGithubToken } from './gistRepo';
 import type { Stock } from './types';
 
@@ -109,6 +109,29 @@ describe('GistStockRepository', () => {
     const repo = new GistStockRepository({ token: 't', fetchImpl: srv.fetchImpl });
     await expect(repo.add({ symbol: '   ' })).rejects.toThrow('股票代码不能为空');
   });
+
+  it('未传 fetchImpl 时经 globalThis.fetch 发请求（浏览器 Illegal invocation 回归防护）', async () => {
+    let receiver: unknown = null;
+    const spy = vi.fn(function (this: unknown) {
+      receiver = this;
+      return Promise.resolve({
+        ok: false,
+        status: 404,
+        json: async () => ({}),
+        text: async () => '',
+        arrayBuffer: async () => new ArrayBuffer(0)
+      } as any);
+    });
+    vi.stubGlobal('fetch', spy);
+    try {
+      const repo = new GistStockRepository({ token: 't', gistId: 'g1' });
+      expect(await repo.list()).toEqual([]); // 404 → 视为无数据
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(receiver).toBe(globalThis); // 若改回 `?? fetch` 拆引用，接收者将是仓库实例而非全局
+    } finally {
+      vi.unstubAllGlobals();
+    }
+  });
 });
 
 describe('verifyGithubToken', () => {
@@ -145,5 +168,27 @@ describe('verifyGithubToken', () => {
     });
     expect(r.ok).toBe(false);
     expect(r.message).toContain('网络错误');
+  });
+
+  it('未传 fetchImpl 时经 globalThis.fetch 校验令牌', async () => {
+    let receiver: unknown = null;
+    const spy = vi.fn(function (this: unknown) {
+      receiver = this;
+      return Promise.resolve({
+        ok: true,
+        status: 200,
+        json: async () => ({ login: 'li521' }),
+        headers: { get: () => null }
+      } as any);
+    });
+    vi.stubGlobal('fetch', spy);
+    try {
+      const r = await verifyGithubToken('ghp_x');
+      expect(r.ok).toBe(true);
+      expect(spy).toHaveBeenCalledTimes(1);
+      expect(receiver).toBe(globalThis);
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 });

@@ -2,6 +2,7 @@
 import type { Candle, IntradayPoint } from './types';
 import { parseSinaDailyJson, parseSinaIntraday } from '../worker/parse';
 import { corsProxyUrl } from './proxyUrl';
+import { safeFetch } from './fetchSafe';
 
 const SINA_KLINE = (symbol: string, scale: number) =>
   `https://money.finance.sina.com.cn/quotes_service/api/json_v2.php/CN_MarketData.getKLineData?symbol=${encodeURIComponent(
@@ -10,7 +11,7 @@ const SINA_KLINE = (symbol: string, scale: number) =>
 
 export async function fetchIntraday(
   symbol: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = safeFetch
 ): Promise<IntradayPoint[]> {
   // scale=5 为 5 分钟 K，用作分时近似（真实分时接口需另行验证）
   const res = await fetchImpl(corsProxyUrl(SINA_KLINE(symbol, 5)));
@@ -20,7 +21,7 @@ export async function fetchIntraday(
 
 export async function fetchDaily(
   symbol: string,
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = safeFetch
 ): Promise<Candle[]> {
   // scale=240 为日 K
   const res = await fetchImpl(corsProxyUrl(SINA_KLINE(symbol, 240)));

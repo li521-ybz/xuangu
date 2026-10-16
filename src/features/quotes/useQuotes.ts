@@ -2,8 +2,9 @@
 import { useCallback, useEffect, useState } from 'react';
 import type { Quote } from '../../lib/types';
 import { fetchQuotes } from '../../lib/quotesClient';
+import { safeFetch } from '../../lib/fetchSafe';
 
-export function useQuotes(symbols: string[], fetchImpl: typeof fetch = fetch) {
+export function useQuotes(symbols: string[], fetchImpl: typeof fetch = safeFetch) {
   const [quotes, setQuotes] = useState<Record<string, Quote>>({});
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);

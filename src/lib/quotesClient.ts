@@ -2,6 +2,7 @@
 import type { Quote } from './types';
 import { parseQuotesBatch } from '../worker/parse';
 import { corsProxyUrl } from './proxyUrl';
+import { safeFetch } from './fetchSafe';
 
 export interface QuotesResponse {
   quotes: Quote[];
@@ -20,7 +21,7 @@ async function readGbk(res: Response): Promise<string> {
 
 export async function fetchQuotes(
   symbols: string[],
-  fetchImpl: typeof fetch = fetch
+  fetchImpl: typeof fetch = safeFetch
 ): Promise<QuotesResponse> {
   if (symbols.length === 0) return { quotes: [] };
   const target = `https://qt.gtimg.cn/q=${encodeURIComponent(symbols.join(','))}`;

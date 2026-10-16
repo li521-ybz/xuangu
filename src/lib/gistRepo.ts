@@ -3,6 +3,7 @@
 // 架构参考开源实践（gist-ledger / Scrooge.js / @repus/gist-sync）：数据在你自己的 Gist，无第三方数据库。
 import type { Stock } from './types';
 import type { AddStockInput, StockRepository } from './repository';
+import { safeFetch } from './fetchSafe';
 
 export const GH_TOKEN_KEY = 'xuangu_gh_token';
 export const GH_GIST_KEY = 'xuangu_gh_gist';
@@ -43,7 +44,7 @@ export class GistStockRepository implements StockRepository {
     this.token = opts.token;
     this.gistId = opts.gistId;
     this.fileName = opts.fileName ?? FILE;
-    this.fetchImpl = opts.fetchImpl ?? fetch;
+    this.fetchImpl = opts.fetchImpl ?? safeFetch;
     this.onGistCreated = opts.onGistCreated;
   }
 
@@ -187,7 +188,7 @@ export async function verifyGithubToken(
   token: string,
   fetchImpl?: typeof fetch
 ): Promise<{ ok: boolean; message: string }> {
-  const f = fetchImpl ?? fetch;
+  const f = fetchImpl ?? safeFetch;
   try {
     const res = await f(`${API}/user`, {
       headers: {
