@@ -13,14 +13,19 @@ export function AddStockModal({ groups, onAdd, onClose }: Props) {
   const [name, setName] = useState('');
   const [group, setGroup] = useState<GroupName>(groups.includes('观察') ? '观察' : groups[0] ?? '观察');
   const [busy, setBusy] = useState(false);
+  const [err, setErr] = useState<string | null>(null);
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!symbol.trim()) return;
     setBusy(true);
+    setErr(null);
     try {
       await onAdd({ symbol: symbol.trim(), name: name.trim(), group });
       onClose();
+    } catch (e2) {
+      // 展示失败原因（如令牌无效），保持弹层打开便于重试
+      setErr((e2 as Error).message || '添加失败，请重试');
     } finally {
       setBusy(false);
     }
@@ -54,6 +59,11 @@ export function AddStockModal({ groups, onAdd, onClose }: Props) {
             ))}
           </select>
         </label>
+        {err && (
+          <p className="error" role="alert">
+            {err}
+          </p>
+        )}
         <div className="modal-actions">
           <button type="button" onClick={onClose}>
             取消

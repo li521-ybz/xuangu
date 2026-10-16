@@ -26,9 +26,15 @@ export function useWatchlist(repo: StockRepository) {
 
   const add = useCallback(
     async (input: AddStockInput) => {
-      const s = await repo.add(input);
-      setStocks((prev) => [...prev, s]);
-      return s;
+      setError(null);
+      try {
+        const s = await repo.add(input);
+        setStocks((prev) => [...prev, s]);
+        return s;
+      } catch (e) {
+        setError((e as Error).message);
+        throw e; // 抛给弹层展示具体原因，并保持弹层不关闭
+      }
     },
     [repo]
   );

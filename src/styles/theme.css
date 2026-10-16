@@ -123,6 +123,9 @@ body {
 .error {
   color: var(--up);
 }
+.ok {
+  color: var(--down);
+}
 .loading,
 .empty {
   color: var(--muted);

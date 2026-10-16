@@ -1,6 +1,6 @@
 // GistStockRepository 单测：用内存态假 Gist 服务，覆盖建/读/删/改组/报错
 import { describe, it, expect } from 'vitest';
-import { GistStockRepository } from './gistRepo';
+import { GistStockRepository, verifyGithubToken } from './gistRepo';
 import type { Stock } from './types';
 
 function ok(body: unknown) {
@@ -98,15 +98,52 @@ describe('GistStockRepository', () => {
     expect(srv.read('g1')[0].group).toBe('持仓');
   });
 
-  it('401 抛错', async () => {
+  it('401 抛出带令牌提示的错误', async () => {
     const fetchImpl = async () => ({ ok: false, status: 401, json: async () => ({}), text: async () => '', arrayBuffer: async () => new ArrayBuffer(0) }) as any;
     const repo = new GistStockRepository({ token: 'bad', gistId: 'g1', fetchImpl });
-    await expect(repo.list()).rejects.toThrow();
+    await expect(repo.list()).rejects.toThrow(/令牌/);
   });
 
   it('空代码抛错', async () => {
     const srv = gistServer();
     const repo = new GistStockRepository({ token: 't', fetchImpl: srv.fetchImpl });
     await expect(repo.add({ symbol: '   ' })).rejects.toThrow('股票代码不能为空');
+  });
+});
+
+describe('verifyGithubToken', () => {
+  function userRes(status: number, body: unknown = {}, scopes?: string) {
+    return {
+      ok: status >= 200 && status < 300,
+      status,
+      json: async () => body,
+      headers: { get: (k: string) => (k === 'x-oauth-scopes' && scopes !== undefined ? scopes : null) }
+    } as any;
+  }
+
+  it('有效令牌返回 ok 并带上用户名', async () => {
+    const r = await verifyGithubToken('ghp_x', async () => userRes(200, { login: 'li521' }, 'gist, read:user'));
+    expect(r.ok).toBe(true);
+    expect(r.message).toContain('li521');
+  });
+
+  it('401 提示令牌无效', async () => {
+    const r = await verifyGithubToken('bad', async () => userRes(401));
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('401');
+  });
+
+  it('classic 令牌缺 gist scope 时提示补权限', async () => {
+    const r = await verifyGithubToken('ghp_x', async () => userRes(200, { login: 'li521' }, 'read:user, repo'));
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('gists');
+  });
+
+  it('网络异常时返回错误信息不抛出', async () => {
+    const r = await verifyGithubToken('ghp_x', async () => {
+      throw new Error('network down');
+    });
+    expect(r.ok).toBe(false);
+    expect(r.message).toContain('网络错误');
   });
 });

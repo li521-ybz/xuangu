@@ -22,6 +22,15 @@ interface GistFileShape {
   stocks: Stock[];
 }
 
+/** 把 GitHub API 非 2xx 转成用户看得懂的中文错误（令牌问题重点提示） */
+function ghError(action: string, status: number): Error {
+  if (status === 401)
+    return new Error(`${action}失败：GitHub 令牌无效或已过期（401）。请到「设置」重新粘贴有效令牌（需有 gists 权限）`);
+  if (status === 403)
+    return new Error(`${action}失败：令牌权限不足或被限流（403）。请确认令牌已勾选 gists 权限，稍后重试`);
+  return new Error(`${action}失败：GitHub 返回 ${status}`);
+}
+
 /** 用 GitHub 私有 Gist 存自选股，实现 StockRepository 接口 */
 export class GistStockRepository implements StockRepository {
   private token: string;
@@ -51,7 +60,7 @@ export class GistStockRepository implements StockRepository {
     if (!this.gistId) return [];
     const res = await this.fetchImpl(`${API}/gists/${this.gistId}`, { headers: this.headers() });
     if (res.status === 404) return [];
-    if (!res.ok) throw new Error(`GitHub 返回 ${res.status}`);
+    if (!res.ok) throw ghError('读取自选股', res.status);
     const data = await res.json();
     const content = data?.files?.[this.fileName]?.content;
     if (!content) return [];
@@ -71,7 +80,7 @@ export class GistStockRepository implements StockRepository {
         headers: this.headers(),
         body: JSON.stringify({ description: 'xuangu 自选股', files: { [this.fileName]: { content } } })
       });
-      if (!res.ok) throw new Error(`创建 Gist 失败 ${res.status}`);
+      if (!res.ok) throw ghError('创建 Gist', res.status);
       const data = await res.json();
       this.gistId = data.id;
       this.onGistCreated?.(data.id);
@@ -82,7 +91,7 @@ export class GistStockRepository implements StockRepository {
       headers: this.headers(),
       body: JSON.stringify({ files: { [this.fileName]: { content } } })
     });
-    if (!res.ok) throw new Error(`写入 Gist 失败 ${res.status}`);
+    if (!res.ok) throw ghError('写入 Gist', res.status);
   }
 
   async list(): Promise<Stock[]> {
@@ -168,4 +177,41 @@ export function createGistRepositoryFromStorage(
     fetchImpl,
     onGistCreated: setStoredGistId
   });
+}
+
+/**
+ * 校验令牌是否可用：GET /user 验身份；classic 令牌再核对 x-oauth-scopes 是否含 gist。
+ * 供「设置」弹层的「测试令牌」按钮使用，不写入任何数据。
+ */
+export async function verifyGithubToken(
+  token: string,
+  fetchImpl?: typeof fetch
+): Promise<{ ok: boolean; message: string }> {
+  const f = fetchImpl ?? fetch;
+  try {
+    const res = await f(`${API}/user`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: 'application/vnd.github+json',
+        'User-Agent': 'xuangu-app'
+      }
+    });
+    if (res.status === 401) return { ok: false, message: '令牌无效或已过期（401），请重新生成' };
+    if (res.status === 403) return { ok: false, message: '令牌被拒绝或触发限流（403），稍后重试' };
+    if (!res.ok) return { ok: false, message: `GitHub 返回 ${res.status}` };
+    const scopes = res.headers?.get?.('x-oauth-scopes');
+    if (typeof scopes === 'string' && scopes.length > 0 && !scopes.split(',').map((s) => s.trim()).includes('gist')) {
+      return { ok: false, message: '令牌有效但未包含 gists 权限，请重新生成并勾选 gist' };
+    }
+    let login = '';
+    try {
+      const data = await res.json();
+      login = data?.login ?? '';
+    } catch {
+      /* 忽略解析失败 */
+    }
+    return { ok: true, message: login ? `令牌有效（${login}）` : '令牌有效' };
+  } catch (e) {
+    return { ok: false, message: `网络错误：${(e as Error).message}` };
+  }
 }

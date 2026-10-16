@@ -3,6 +3,7 @@ import { describe, it, expect } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { WatchlistPage } from './WatchlistPage';
+import type { StockRepository } from '../../lib/repository';
 import { InMemoryStockRepository } from '../../lib/repository';
 
 describe('WatchlistPage 交互', () => {
@@ -41,6 +42,30 @@ describe('WatchlistPage 交互', () => {
       expect(screen.queryByTestId('row-sh600000')).not.toBeInTheDocument()
     );
     expect(screen.getByTestId('row-sz000001')).toBeInTheDocument();
+  });
+
+  it('添加失败时弹层显示错误且不关闭', async () => {
+    const user = userEvent.setup();
+    // 模拟令牌无效：Gist 写入被拒（对应线上「按钮没反应」的真实场景）
+    class FailingRepo implements StockRepository {
+      async list() {
+        return [];
+      }
+      async add(): Promise<never> {
+        throw new Error('创建 Gist 失败：GitHub 令牌无效或已过期（401）。请到「设置」重新粘贴有效令牌（需有 gists 权限）');
+      }
+      async remove() {}
+      async setGroup() {}
+    }
+    render(<WatchlistPage repo={new FailingRepo()} />);
+    await user.click(screen.getByLabelText('添加自选'));
+    await user.type(screen.getByLabelText('股票代码'), 'sh600000');
+    await user.click(screen.getByRole('button', { name: '添加' }));
+    // 错误原因必须可见（页面横幅 + 弹层内至少一处），且弹层保持打开
+    const msgs = await screen.findAllByText(/令牌无效或已过期/);
+    expect(msgs.length).toBeGreaterThan(0);
+    expect(screen.getByLabelText('股票代码')).toBeInTheDocument();
+    expect(screen.queryByTestId('row-sh600000')).not.toBeInTheDocument();
   });
 
   it('删除行后从列表消失', async () => {
