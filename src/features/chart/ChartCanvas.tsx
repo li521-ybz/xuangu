@@ -26,6 +26,31 @@ const maColor = (n: number) => MA_COLORS[n] ?? '#888888';
 const UP = '#e23c3c';
 const DOWN = '#1ba784';
 
+// 默认缩放窗口：最近 15 根（日K/30分/60分 统一按周期根数口径；不足 15 根全显）
+const DEFAULT_SPAN = 15;
+
+/** dataZoom：滑块（拖动/框选）+ inside（滚轮缩放、双指捏合；单指不吞页面滚动） */
+function zoom(startValue: number, endValue: number, xAxisIndex: number[]) {
+  return [
+    { type: 'inside', xAxisIndex, startValue, endValue, zoomOnMouseWheel: true, moveOnMouseMove: false },
+    {
+      type: 'slider',
+      xAxisIndex,
+      startValue,
+      endValue,
+      bottom: 4,
+      height: 16,
+      brushSelect: false,
+      borderColor: 'transparent',
+      backgroundColor: 'transparent',
+      fillerColor: 'rgba(47,107,255,0.12)',
+      dataBackground: { lineStyle: { color: 'rgba(0,0,0,0.12)' }, areaStyle: { color: 'rgba(0,0,0,0.04)' } },
+      selectedDataBackground: { lineStyle: { color: '#2f6bff' }, areaStyle: { color: 'rgba(47,107,255,0.18)' } },
+      textStyle: { show: false }
+    }
+  ];
+}
+
 export function buildOption(points: IntradayPoint[] | Candle[], kind: 'intraday' | 'kline', period: KlinePeriod = 'day') {
   if (kind === 'intraday') {
     const data = (points as IntradayPoint[]).map((p) => [p.time, p.price]);
@@ -56,12 +81,16 @@ export function buildOption(points: IntradayPoint[] | Candle[], kind: 'intraday'
     itemStyle: { color: UP, color0: DOWN, borderColor: UP, borderColor0: DOWN }
   };
 
+  const n = dates.length;
+  const endValue = Math.max(0, n - 1);
+  const startValue = Math.max(0, n - DEFAULT_SPAN);
+
   if (period === 'day') {
-    // 日K：上 K线+均线、下 成交量（双 grid；成交量红涨绿跌，与 K 线实体同源）
+    // 日K：上 K线+均线、下 成交量（双 grid；成交量红涨绿跌，与 K 线实体同源）；底部 dataZoom 缩放
     return {
       grid: [
-        { left: 52, right: 14, top: 18, height: '42%' },
-        { left: 52, right: 14, top: '62%', height: '20%' }
+        { left: 52, right: 14, top: 16, height: '40%' },
+        { left: 52, right: 14, top: '60%', height: '15%' }
       ],
       xAxis: [
         { type: 'category', data: dates, gridIndex: 0, axisLabel: { show: false } },
@@ -86,16 +115,18 @@ export function buildOption(points: IntradayPoint[] | Candle[], kind: 'intraday'
           yAxisIndex: 1,
           data: candles.map((c) => ({ value: c.volume, itemStyle: { color: c.close >= c.open ? UP : DOWN } }))
         }
-      ]
+      ],
+      dataZoom: zoom(startValue, endValue, [0, 1])
     };
   }
 
-  // 30分/60分：单 grid，K线 + MA13/MA25（无成交量）
+  // 30分/60分：单 grid，K线 + MA13/MA25（无成交量）；底部 dataZoom 缩放
   return {
-    grid: { left: 52, right: 14, top: 18, bottom: 20 },
+    grid: { left: 52, right: 14, top: 16, height: '72%' },
     xAxis: { type: 'category', data: dates, axisLabel: { show: false } },
     yAxis: { type: 'value', scale: true, axisLabel: { fontSize: 10 } },
-    series: [klineSeries, ...maSeries]
+    series: [klineSeries, ...maSeries],
+    dataZoom: zoom(startValue, endValue, [0])
   };
 }
 

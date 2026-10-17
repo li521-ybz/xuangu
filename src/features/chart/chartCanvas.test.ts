@@ -14,8 +14,42 @@ function candles(n: number): Candle[] {
   }));
 }
 
-const opt = (period: 'day' | 'm30' | 'm60') =>
-  buildOption(candles(30), 'kline', period) as any;
+const opt = (period: 'day' | 'm30' | 'm60', len = 30) =>
+  buildOption(candles(len), 'kline', period) as any;
+
+describe('buildOption · 缩放（dataZoom）', () => {
+  it('默认显示最近 15 根（30 根数据 → 窗口 15..29）', () => {
+    const z = opt('day').dataZoom;
+    const slider = z.find((d: any) => d.type === 'slider');
+    const inside = z.find((d: any) => d.type === 'inside');
+    expect(slider.startValue).toBe(15);
+    expect(slider.endValue).toBe(29);
+    expect(inside.startValue).toBe(15);
+    expect(inside.endValue).toBe(29);
+  });
+
+  it('数据不足 15 根时全显（10 根 → 窗口 0..9）', () => {
+    const slider = opt('m30', 10).dataZoom.find((d: any) => d.type === 'slider');
+    expect(slider.startValue).toBe(0);
+    expect(slider.endValue).toBe(9);
+  });
+
+  it('日K：K线区与成交量区双轴联动；分钟：单轴', () => {
+    expect(opt('day').dataZoom[0].xAxisIndex).toEqual([0, 1]);
+    expect(opt('m30').dataZoom[0].xAxisIndex).toEqual([0]);
+  });
+
+  it('inside 缩放开放、单指拖动平移关闭（不吞页面滚动）', () => {
+    const inside = opt('m60').dataZoom.find((d: any) => d.type === 'inside');
+    expect(inside.zoomOnMouseWheel).toBe(true);
+    expect(inside.moveOnMouseMove).toBe(false);
+  });
+
+  it('分时图不加缩放', () => {
+    const o = buildOption([{ time: '09:30', price: 11.05 }], 'intraday') as any;
+    expect(o.dataZoom).toBeUndefined();
+  });
+});
 
 describe('buildOption · 日K', () => {
   it('series 名称集合正确（K线无名 + 4 均线 + 成交量）', () => {
