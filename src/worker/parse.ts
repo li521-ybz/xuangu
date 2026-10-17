@@ -56,13 +56,17 @@ export function parseQuotesBatch(raw: string): Quote[] {
 }
 
 /**
- * 腾讯 K 线（fqkline/get）：{"code":0,"data":{"sh601929":{"qfqday":[[日期,开,收,高,低,量],...]}}}
+ * 腾讯 K 线（fqkline/get 日K / mkline 分钟K）：
+ * {"code":0,"data":{"sh601929":{"qfqday":[[日期,开,收,高,低,量],...]}}}
+ * {"code":0,"data":{"sh600000":{"m30":[[时间,开,收,高,低,量,{},振幅],...]}}}
  * 注意字段序是「日期,开,收,高,低,量」——第三位是收盘、第四位是最高（与新浪相反）。
- * key 名：day/week/month 或 qfq 前缀（前复权）；period 为 day|week|month。
+ * key 名：day 用 qfqday 或 day（前复权）；m30/m60 的 key 同名无 qfq 前缀；
+ * 分钟K时间格式为 14 位 YYYYMMDDHHmm（如 202610161400），fqkline/mkline 均返回正序。
+ * 接口分流与域名选择见 lib/chartClient.ts（2026-10-17 实测）。
  */
 export function parseTencentKline(
   jsonText: string,
-  period: 'day' | 'week' | 'month' = 'day'
+  period: 'day' | 'm30' | 'm60' = 'day'
 ): Candle[] {
   let obj: unknown;
   try {

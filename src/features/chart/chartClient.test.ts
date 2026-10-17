@@ -44,11 +44,19 @@ describe('fetchDaily', () => {
     expect(r[0]).toMatchObject({ date: '2024-01-02', open: 11.0, close: 11.2, high: 11.3 });
   });
 
-  it('请求 URL 带周期参数', async () => {
+  it('请求 URL 带周期参数（分钟K走 mkline）', async () => {
     const seen: string[] = [];
-    await fetchDaily('601929', 'week', fakeFetch(KLINE_JSON, seen));
+    await fetchDaily('601929', 'm30', fakeFetch(KLINE_JSON, seen));
     expect(seen[0]).toContain('sh601929');
-    expect(seen[0]).toContain('week');
+    expect(seen[0]).toContain('m30');
+    expect(seen[0]).toContain('mkline');
+  });
+
+  it('日K走 fqkline（与分钟周期分流）', async () => {
+    const seen: string[] = [];
+    await fetchDaily('601929', 'day', fakeFetch(KLINE_JSON, seen));
+    expect(seen[0]).toContain('fqkline');
+    expect(seen[0]).not.toContain('mkline');
   });
 
   it('非 200 抛错', async () => {

@@ -30,7 +30,7 @@ export function ChartPage({ symbol, quote }: Props) {
     };
   }, [symbol]);
 
-  // K 线：symbol 或周期（日/周/月）变化时重新拉取
+  // K 线：symbol 或周期（日K/30分/60分）变化时重新拉取
   useEffect(() => {
     let alive = true;
     fetchDaily(symbol, period)
@@ -67,10 +67,10 @@ export function ChartPage({ symbol, quote }: Props) {
         )}
       </div>
 
-      {/* 日K：常显（下），周期 Tab 切换 日K/周K/月K */}
+      {/* 日K/分钟K：常显（下），周期 Tab 切换 日K/30分/60分 */}
       <div className="chart-block" data-testid="kline-chart">
         <div className="period-tabs" role="tablist" aria-label="K线周期">
-          {(['day', 'week', 'month'] as KlinePeriod[]).map((p) => (
+          {(['day', 'm30', 'm60'] as KlinePeriod[]).map((p) => (
             <button
               key={p}
               role="tab"
@@ -78,7 +78,7 @@ export function ChartPage({ symbol, quote }: Props) {
               className={period === p ? 'active' : ''}
               onClick={() => setPeriod(p)}
             >
-              {p === 'day' ? '日K' : p === 'week' ? '周K' : '月K'}
+              {p === 'day' ? '日K' : p === 'm30' ? '30分' : '60分'}
             </button>
           ))}
         </div>

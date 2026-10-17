@@ -5,13 +5,25 @@ import { parseTencentKline, parseTencentMinute } from '../worker/parse';
 import { safeFetch } from './fetchSafe';
 import { normalizeSymbol } from './symbol';
 
-export type KlinePeriod = 'day' | 'week' | 'month';
+/** K 线周期：day 走 fqkline；m30/m60 走 mkline（分钟周期，2026-10-17 实测） */
+export type KlinePeriod = 'day' | 'm30' | 'm60';
 
-/** 腾讯 K 线：param=代码,周期,,,条数,qfq（前复权） */
-const TX_KLINE = (symbol: string, period: KlinePeriod) =>
+/** 腾讯日K（fqkline）：param=代码,day,,,条数,qfq（前复权） */
+const TX_FQKLINE = (symbol: string) =>
   `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
     symbol
-  )},${period},,,320,qfq`;
+  )},day,,,320,qfq`;
+
+/**
+ * 腾讯分钟K（mkline）：param=代码,周期,,,条数。
+ * 注意两个分流原因（2026-10-17 curl 实测）：fqkline 对 m30/m60 返回 {"code":1,"msg":"bad params"}；
+ * mkline 对 day 返回 {"code":-1,"msg":"param error"}。mkline 用 ifzq.gtimg.cn 域名
+ * （web.ifzq.gtimg.cn 会 301 跳转），实测自带 Access-Control-Allow-Origin: *。
+ */
+const TX_MKLINE = (symbol: string, period: KlinePeriod) =>
+  `https://ifzq.gtimg.cn/appstock/app/kline/mkline?param=${encodeURIComponent(
+    symbol
+  )},${period},,,320`;
 
 /** 腾讯分时：当日每分钟一个点 */
 const TX_MINUTE = (symbol: string) =>
@@ -32,7 +44,8 @@ export async function fetchDaily(
   period: KlinePeriod = 'day',
   fetchImpl: typeof fetch = safeFetch
 ): Promise<Candle[]> {
-  const res = await fetchImpl(TX_KLINE(normalizeSymbol(symbol), period));
+  const url = period === 'day' ? TX_FQKLINE(normalizeSymbol(symbol)) : TX_MKLINE(normalizeSymbol(symbol), period);
+  const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
   return parseTencentKline(await res.text(), period);
 }

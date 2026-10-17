@@ -28,18 +28,18 @@ describe('parseTencentKline', () => {
     expect(candles[1].volume).toBe(5154402);
   });
 
-  it('周K/月K按 period 取对应 key', () => {
+  it('分钟K按 period 取 m30/m60 key（mkline 无 qfq 前缀）', () => {
     const json = JSON.stringify({
       code: 0,
       data: {
         sh601929: {
-          qfqweek: [['2026-10-12', '2.600', '2.750', '2.750', '2.550', '9999.000']],
-          qfqmonth: [['2026-10-01', '2.100', '2.800', '2.900', '2.000', '8888.000']]
+          m30: [['202610161400', '9.67', '9.68', '9.69', '9.65', '38904.000']],
+          m60: [['202610161500', '9.67', '9.73', '9.77', '9.66', '192604.000']]
         }
       }
     });
-    expect(parseTencentKline(json, 'week')[0].volume).toBe(9999);
-    expect(parseTencentKline(json, 'month')[0].volume).toBe(8888);
+    expect(parseTencentKline(json, 'm30')[0].volume).toBe(38904);
+    expect(parseTencentKline(json, 'm60')[0].volume).toBe(192604);
   });
 
   it('无 qfq 前缀时回退裸 key', () => {

@@ -14,14 +14,14 @@ describe('ChartPage', () => {
     expect(screen.getByTestId('kline-chart')).toBeInTheDocument();
   });
 
-  it('周期 Tab 切换（日K/周K/月K）', async () => {
+  it('周期 Tab 切换（日K/30分/60分）', async () => {
     const user = userEvent.setup();
     render(<ChartPage symbol="sh600000" />);
     const tabs = screen.getByRole('tablist', { name: 'K线周期' });
-    const week = within(tabs).getByRole('tab', { name: '周K' });
-    await user.click(week);
-    expect(week).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByTestId('period')).toHaveTextContent('week');
+    const m30 = within(tabs).getByRole('tab', { name: '30分' });
+    await user.click(m30);
+    expect(m30).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByTestId('period')).toHaveTextContent('m30');
   });
 
   it('上涨头部红', () => {
