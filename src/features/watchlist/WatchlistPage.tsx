@@ -2,12 +2,16 @@
 // 宽屏：左竖排分组导航 + 中股票列表列 + 右主区「信息条 → 图表（children 注入模块③）」
 // 窄屏：纵向堆叠（分组横排 chips → 列表 → 主区）
 // 列表行显示名称+代码（用户 2026-10-17 拍板）；信息条只显示当前选中股票的 代码/现价/涨跌幅
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+// 模块④ 条件选股（2026-10-17）：左栏底部「条件选股」入口，进入后中栏变条件面板、右栏变结果列表。
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StockRepository } from '../../lib/repository';
 import { bareSymbol } from '../../lib/symbol';
 import { groupsOf, useWatchlist } from './useWatchlist';
 import { AddStockModal } from './AddStockModal';
 import { useQuotes } from '../quotes/useQuotes';
+import { ScreenerPanel } from '../screener/ScreenerPanel';
+import { ScreenerResults } from '../screener/ScreenerResults';
+import { useScreener } from '../screener/useScreener';
 import { pctText, quoteClass } from '../../lib/format';
 
 interface Props {
@@ -24,6 +28,9 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   const { stocks, loading, error, load, add, remove } = useWatchlist(repo);
   const [filter, setFilter] = useState<string>(ALL);
   const [adding, setAdding] = useState(false);
+  const [screener, setScreener] = useState(false);
+  const screenerCtl = useScreener(stocks);
+  const autoRan = useRef(false);
 
   const symbols = useMemo(() => stocks.map((s) => s.symbol), [stocks]);
   const { quotes, degraded, refresh } = useQuotes(symbols);
@@ -44,12 +51,25 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   };
 
   // 默认选中：加载完成后若无有效选中（首次进入/选中项被删），选中当前筛选第一个，
-  // 图表区与信息条立即可见（三栏终端体验：进来就能看图，无需先点行）
+  // 图表区与信息条立即可见（三栏终端体验：进来就能看图，无需先点行）。
+  // 选股模式下不自动选中（右栏被结果列表占用）。
   useEffect(() => {
-    if (loading) return;
+    if (loading || screener) return;
     const exists = !!selected && stocks.some((s) => s.symbol === selected);
     if (!exists && visible[0]) onSelect?.(visible[0].symbol);
-  }, [loading, selected, stocks, visible, onSelect]);
+  }, [loading, screener, selected, stocks, visible, onSelect]);
+
+  // 进入选股模式且自选非空时自动筛一次（每次进入只跑一轮；改条件/加股票后手动点「开始筛选」）
+  useEffect(() => {
+    if (!screener) {
+      autoRan.current = false;
+      return;
+    }
+    if (autoRan.current || screenerCtl.running || screenerCtl.rows.length > 0) return;
+    if (stocks.length === 0) return;
+    autoRan.current = true;
+    void screenerCtl.run();
+  }, [screener, screenerCtl, stocks.length]);
 
   return (
     <section className="watchlist" aria-label="自选股看板">
@@ -58,18 +78,40 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
           <button
             key={g}
             type="button"
-            className={g === filter ? 'tab active' : 'tab'}
-            aria-pressed={g === filter}
-            onClick={() => setFilter(g)}
+            className={!screener && g === filter ? 'tab active' : 'tab'}
+            aria-pressed={!screener && g === filter}
+            onClick={() => {
+              setFilter(g);
+              setScreener(false);
+            }}
           >
             {g}
           </button>
         ))}
+        <button
+          type="button"
+          className={`tab tab-screener${screener ? ' active' : ''}`}
+          aria-label="条件选股"
+          aria-pressed={screener}
+          data-testid="screener-entry"
+          onClick={() => setScreener((v) => !v)}
+        >
+          条件选股
+        </button>
       </nav>
 
-      {/* 中栏：股票列表（名称 + 代码，点行切换图表股票） */}
+      {/* 中栏：股票列表（名称 + 代码，点行切换图表股票）；选股模式下为条件面板 */}
       <div className="stock-col">
-        {!loading && visible.length === 0 ? (
+        {screener ? (
+          <ScreenerPanel
+            toggles={screenerCtl.toggles}
+            onToggle={screenerCtl.toggle}
+            onRun={() => void screenerCtl.run()}
+            running={screenerCtl.running}
+            progress={screenerCtl.progress}
+            total={stocks.length}
+          />
+        ) : !loading && visible.length === 0 ? (
           <p className="empty">暂无自选，点 ＋ 添加</p>
         ) : (
           <ul className="stock-list" aria-label="自选股列表">
@@ -101,22 +143,26 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
         )}
       </div>
 
-      {/* 右主区：导航栏 + 选中股票信息条 + 图表区 */}
+      {/* 右主区：导航栏 + 信息条 + 图表区；选股模式下为结果列表 */}
       <div className="board-main">
         <header className="navbar">
-          <h2 className="navbar-title">自选股</h2>
+          <h2 className="navbar-title">{screener ? '条件选股' : '自选股'}</h2>
           <div className="navbar-tools">
-            <button className="tool-btn" aria-label="刷新" title="刷新" onClick={onRefresh}>
-              ↻
-            </button>
-            {onOpenSettings && (
-              <button className="tool-btn" aria-label="设置" title="设置" onClick={onOpenSettings}>
-                ⚙
-              </button>
+            {!screener && (
+              <>
+                <button className="tool-btn" aria-label="刷新" title="刷新" onClick={onRefresh}>
+                  ↻
+                </button>
+                {onOpenSettings && (
+                  <button className="tool-btn" aria-label="设置" title="设置" onClick={onOpenSettings}>
+                    ⚙
+                  </button>
+                )}
+                <button className="tool-btn tool-btn-primary" aria-label="添加自选" title="添加自选" onClick={() => setAdding(true)}>
+                  ＋
+                </button>
+              </>
             )}
-            <button className="tool-btn tool-btn-primary" aria-label="添加自选" title="添加自选" onClick={() => setAdding(true)}>
-              ＋
-            </button>
           </div>
         </header>
 
@@ -124,37 +170,49 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
         {loading && <p className="loading">加载中…</p>}
         {degraded && <p className="error">行情部分降级（沿用上次数据）</p>}
 
-        {selected ? (
-          <div className="quote-bar" data-testid="quote-bar">
-            <span className="qb-seg">
-              <span className="qb-label">股票代码</span>
-              <span className="qb-value">{selected}</span>
-            </span>
-            <span className="qb-seg">
-              <span className="qb-label">现价</span>
-              <span className={`qb-value num ${scls}`}>{sq ? sq.price.toFixed(2) : '—'}</span>
-            </span>
-            <span className="qb-seg">
-              <span className="qb-label">涨跌幅</span>
-              <span className={`qb-value num ${scls}`}>
-                {sq ? `${pctText(sq.changePct)} ${sq.change >= 0 ? '▲' : '▼'}` : '—'}
-              </span>
-            </span>
-          </div>
-        ) : (
-          !loading && <p className="empty">添加自选后，这里显示分时与K线</p>
-        )}
-
-        {children}
-
-        {adding && (
-          <AddStockModal
-            groups={groups}
-            onAdd={async (input) => {
-              await add(input);
+        {screener ? (
+          <ScreenerResults
+            rows={screenerCtl.rows}
+            onView={(symbol) => {
+              onSelect?.(symbol);
+              setScreener(false);
             }}
-            onClose={() => setAdding(false)}
           />
+        ) : (
+          <>
+            {selected ? (
+              <div className="quote-bar" data-testid="quote-bar">
+                <span className="qb-seg">
+                  <span className="qb-label">股票代码</span>
+                  <span className="qb-value">{selected}</span>
+                </span>
+                <span className="qb-seg">
+                  <span className="qb-label">现价</span>
+                  <span className={`qb-value num ${scls}`}>{sq ? sq.price.toFixed(2) : '—'}</span>
+                </span>
+                <span className="qb-seg">
+                  <span className="qb-label">涨跌幅</span>
+                  <span className={`qb-value num ${scls}`}>
+                    {sq ? `${pctText(sq.changePct)} ${sq.change >= 0 ? '▲' : '▼'}` : '—'}
+                  </span>
+                </span>
+              </div>
+            ) : (
+              !loading && <p className="empty">添加自选后，这里显示分时与K线</p>
+            )}
+
+            {children}
+
+            {adding && (
+              <AddStockModal
+                groups={groups}
+                onAdd={async (input) => {
+                  await add(input);
+                }}
+                onClose={() => setAdding(false)}
+              />
+            )}
+          </>
         )}
       </div>
     </section>

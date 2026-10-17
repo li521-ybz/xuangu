@@ -381,6 +381,148 @@ button {
   margin-bottom: 8px;
 }
 
+/* ---------- 模块④ 条件选股（2026-10-17）：左栏入口 + 中栏条件面板 + 右栏结果 ---------- */
+/* 入口按钮与分组 tab 同类（宽屏选中态由 .app.wide .group-side .tab.active 覆盖，踩坑 #24 同防）；
+   宽屏下加一条上分隔线，与分组导航区隔 */
+.group-side .tab-screener {
+  margin-top: 8px;
+}
+.app.wide .group-side .tab-screener {
+  position: relative;
+  margin-top: 14px;
+}
+.app.wide .group-side .tab-screener::before {
+  content: '';
+  position: absolute;
+  top: -8px;
+  left: 6px;
+  right: 6px;
+  border-top: 1px solid var(--line);
+}
+
+/* 中栏条件面板 */
+.screener-panel {
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.cond-group {
+  display: flex;
+  flex-direction: column;
+}
+.cond-group h4 {
+  margin: 4px 0 2px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.cond-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 2px;
+}
+.cond-row:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+.cond-text {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-width: 0;
+}
+.cond-label {
+  font-size: 13px;
+  font-weight: 500;
+  line-height: 1.35;
+}
+.cond-hint {
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.4;
+  margin: 2px 0 0;
+}
+/* iOS 开关 */
+.switch {
+  flex: none;
+  width: 44px;
+  height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: var(--fill);
+  position: relative;
+  transition: background 0.2s var(--ease);
+  padding: 0;
+}
+.switch.on {
+  background: var(--accent);
+}
+.switch .knob {
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
+  transition: transform 0.2s var(--ease);
+}
+.switch.on .knob {
+  transform: translateX(18px);
+}
+.run-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 11px;
+  font-size: 15px;
+  font-weight: 600;
+  color: #fff;
+  background: var(--accent);
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+  transition: transform 0.15s var(--ease), opacity 0.15s;
+}
+.run-btn:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+.run-btn:disabled {
+  opacity: 0.5;
+}
+.cond-progress {
+  margin: 0;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+/* 右栏结果列表 */
+.result-summary {
+  margin: 12px 4px 8px;
+  font-size: 13px;
+  color: var(--muted);
+}
+.result-badge {
+  flex: none;
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+}
+.result-badge.hit {
+  color: var(--accent);
+  background: rgba(0, 122, 255, 0.12);
+}
+.result-badge.candidate {
+  color: var(--muted);
+  background: var(--fill);
+}
+.result-badge.no-data {
+  color: var(--error);
+  background: rgba(215, 0, 21, 0.08);
+}
+
 /* ---------- 底部 Sheet 弹层（iOS Modal Presentation） ---------- */
 .modal-backdrop {
   position: fixed;
