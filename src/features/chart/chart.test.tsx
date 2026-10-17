@@ -24,6 +24,11 @@ describe('ChartPage', () => {
     expect(screen.getByTestId('period')).toHaveTextContent('m30');
   });
 
+  it('头部显示名称与代码（quote 有名时「名称 · 代码」）', () => {
+    render(<ChartPage symbol="sh600000" quote={up} />);
+    expect(screen.getByText('浦发 · sh600000')).toBeInTheDocument();
+  });
+
   it('上涨头部红', () => {
     render(<ChartPage symbol="sh600000" quote={up} />);
     const head = screen.getByText('11.20').closest('.detail-head')!;

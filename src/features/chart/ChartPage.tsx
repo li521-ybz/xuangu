@@ -54,7 +54,7 @@ export function ChartPage({ symbol, quote }: Props) {
             {pctText(quote.changePct)} {quote.change >= 0 ? '▲' : '▼'}（{changeText(quote.change)}）
           </div>
         )}
-        <div className="sym">{symbol}</div>
+        <div className="sym">{quote?.name ? `${quote.name} · ${symbol}` : symbol}</div>
       </header>
 
       {/* 分时图：常显（上） */}

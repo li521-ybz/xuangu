@@ -245,6 +245,12 @@ button {
   flex: 1 1 auto;
   padding: 16px;
 }
+/* 大屏单边空白 → 左右对称留白（iPad/macOS 横屏标准：内容居中 + 宽度约束，
+   而非拉伸图表撑满；≤760px 容器时自动全宽无副作用） */
+.detail > * {
+  max-width: 760px;
+  margin-inline: auto;
+}
 .detail-head {
   background: var(--card);
   border-radius: var(--radius);
