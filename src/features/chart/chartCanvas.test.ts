@@ -47,6 +47,11 @@ describe('buildOption · 日K', () => {
     expect(opt('day').series[1].xAxisIndex).toBe(0);
     expect(opt('day').series[5].xAxisIndex).toBe(1);
   });
+
+  it('均线配色：MA5 红 MA10 绿 MA20 蓝 MA60 黑', () => {
+    const colors = opt('day').series.slice(1, 5).map((s: any) => s.lineStyle.color);
+    expect(colors).toEqual(['#e23c3c', '#1ba784', '#2f6bff', '#333333']);
+  });
 });
 
 describe('buildOption · 30分/60分', () => {
@@ -66,6 +71,13 @@ describe('buildOption · 30分/60分', () => {
     const ma13 = opt('m30').series[1];
     expect(ma13.data[11][1]).toBeNull();
     expect(ma13.data[12][1]).toBeCloseTo((1 + 13) / 2, 10); // 1..13 均值 = 7
+  });
+
+  it('分钟均线配色：MA13 红 MA25 蓝', () => {
+    for (const p of ['m30', 'm60'] as const) {
+      const colors = opt(p).series.slice(1).map((s: any) => s.lineStyle.color);
+      expect(colors).toEqual(['#e23c3c', '#2f6bff']);
+    }
   });
 });
 
