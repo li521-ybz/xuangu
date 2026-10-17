@@ -36,18 +36,18 @@ export function WatchlistPage({ repo, onSelect, onOpenSettings }: Props) {
 
   return (
     <section className="watchlist" aria-label="自选股看板">
-      <header className="watchlist-header">
-        <h2>自选股</h2>
-        <div className="watchlist-tools">
-          <button aria-label="刷新" onClick={onRefresh}>
-            刷新
+      <header className="navbar">
+        <h2 className="navbar-title">自选股</h2>
+        <div className="navbar-tools">
+          <button className="tool-btn" aria-label="刷新" title="刷新" onClick={onRefresh}>
+            ↻
           </button>
           {onOpenSettings && (
-            <button aria-label="设置" onClick={onOpenSettings}>
+            <button className="tool-btn" aria-label="设置" title="设置" onClick={onOpenSettings}>
               ⚙
             </button>
           )}
-          <button aria-label="添加自选" onClick={() => setAdding(true)}>
+          <button className="tool-btn tool-btn-primary" aria-label="添加自选" title="添加自选" onClick={() => setAdding(true)}>
             ＋
           </button>
         </div>

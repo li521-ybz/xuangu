@@ -42,6 +42,7 @@ export function SettingsModal({ onSave, onClose }: Props) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="设置">
       <form className="modal" onSubmit={submit}>
+        <div className="sheet-grabber" aria-hidden="true" />
         <h3>设置 · 跨设备同步</h3>
         <p className="hint">
           {saved

@@ -1,13 +1,19 @@
-/* 浅色主题（阶段2 确认）：红涨绿跌 */
+/* iOS 16+ 风格浅色主题（2026-10-17 结构级重设计）：红涨绿跌保持，全部视觉令牌苹果化 */
 :root {
-  --bg: #ffffff;
-  --fg: #1f2329;
-  --muted: #8a8f99;
-  --line: #eceef2;
+  --bg: #f2f2f7; /* iOS 系统分组背景 */
+  --card: #ffffff; /* 卡片 / 分组 */
+  --fg: #1c1c1e; /* iOS label */
+  --muted: #8e8e93; /* iOS secondaryLabel */
+  --line: rgba(60, 60, 67, 0.12); /* iOS separator */
+  --fill: rgba(118, 118, 128, 0.12); /* iOS fill（分段控件/输入框底） */
   --up: #e23c3c; /* 涨：红 */
   --down: #1ba784; /* 跌：绿 */
-  --flat: #8a8f99;
-  --accent: #2f6bff;
+  --flat: #8e8e93;
+  --accent: #007aff; /* iOS 系统蓝 */
+  --error: #d70015;
+  --radius: 16px;
+  --shadow: 0 1px 2px rgba(0, 0, 0, 0.04), 0 8px 24px rgba(0, 0, 0, 0.06);
+  --ease: cubic-bezier(0.32, 0.72, 0.35, 1);
 }
 
 * {
@@ -18,7 +24,13 @@ body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+  font-family: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC', 'HarmonyOS Sans SC', 'Microsoft YaHei', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+button {
+  font: inherit;
+  cursor: pointer;
 }
 
 .app {
@@ -26,7 +38,7 @@ body {
   min-height: 100vh;
 }
 
-/* 宽屏双栏：左列表 + 右详情（阶段3 布局） */
+/* 宽屏双栏：左列表 + 右详情；手机单栏 */
 .app.wide {
   flex-direction: row;
 }
@@ -34,69 +46,157 @@ body {
   flex-direction: column;
 }
 
+/* ---------- 导航栏（iOS Large Title + 毛玻璃） ---------- */
+.navbar {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  padding: 14px 16px 10px;
+  background: rgba(242, 242, 247, 0.82);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+}
+.navbar-title {
+  margin: 0;
+  font-size: 30px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+.navbar-tools {
+  display: flex;
+  gap: 8px;
+}
+.tool-btn {
+  width: 36px;
+  height: 36px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.92);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.1);
+  color: var(--accent);
+  font-size: 16px;
+  line-height: 1;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 0.15s var(--ease), opacity 0.15s;
+}
+.tool-btn:hover {
+  opacity: 0.85;
+}
+.tool-btn:active {
+  transform: scale(0.9);
+  opacity: 0.7;
+}
+.tool-btn-primary {
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  font-weight: 400;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.35);
+}
+
+/* ---------- 分段控件（iOS Segmented Control） ---------- */
+.segmented,
+.group-tabs,
+.period-tabs {
+  display: inline-flex;
+  background: var(--fill);
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+}
+.segmented .seg,
+.group-tabs .tab,
+.period-tabs button {
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.segmented .seg.active,
+.group-tabs .tab.active,
+.period-tabs button.active {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+.group-tabs .tab:active,
+.period-tabs button:active {
+  opacity: 0.7;
+}
+
+/* ---------- 左栏（自选看板） ---------- */
 .watchlist {
   flex: 1 1 320px;
   max-width: 420px;
   border-right: 1px solid var(--line);
-  padding: 12px;
+  padding: 0 0 24px;
 }
-
-.watchlist-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-}
-.watchlist-tools button {
-  margin-left: 8px;
-}
-
 .group-tabs {
-  display: flex;
-  gap: 8px;
-  margin: 12px 0;
+  margin: 4px 16px 12px;
   flex-wrap: wrap;
 }
-.group-tabs .tab {
-  border: 1px solid var(--line);
-  background: #fff;
-  border-radius: 16px;
-  padding: 4px 12px;
-  cursor: pointer;
-}
-.group-tabs .tab.active {
-  border-color: var(--accent);
-  color: var(--accent);
-}
 
+/* Inset 分组列表（白卡 + 行内 hairline） */
 .stock-list {
   list-style: none;
-  margin: 0;
+  margin: 0 16px;
   padding: 0;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow: hidden;
 }
 .stock-row {
   display: flex;
   align-items: center;
   gap: 10px;
-  padding: 10px 8px;
-  border-bottom: 1px solid var(--line);
+  padding: 12px 16px;
   cursor: pointer;
+  transition: background 0.15s;
+}
+.stock-row:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+.stock-row:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.stock-row:active {
+  background: rgba(0, 0, 0, 0.04);
 }
 .stock-name {
   font-weight: 600;
+  font-size: 16px;
 }
 .stock-symbol {
   color: var(--muted);
   font-size: 12px;
+  align-self: flex-start;
+  margin-top: 3px;
 }
 .row-del {
   margin-left: auto;
   border: none;
   background: transparent;
   color: var(--muted);
-  cursor: pointer;
+  font-size: 14px;
+  padding: 4px 6px;
+  border-radius: 50%;
+  transition: color 0.15s, background 0.15s;
+}
+.row-del:hover {
+  color: var(--up);
+  background: rgba(226, 60, 60, 0.08);
 }
 
-/* 行情单元格 */
+/* ---------- 行情单元格（右侧价格） ---------- */
 .quote {
   margin-left: auto;
   text-align: right;
@@ -105,6 +205,7 @@ body {
 .quote-price {
   display: block;
   font-weight: 600;
+  font-size: 16px;
 }
 .quote-pct {
   font-size: 12px;
@@ -120,8 +221,9 @@ body {
   color: var(--flat);
 }
 
+/* ---------- 状态文案 ---------- */
 .error {
-  color: var(--up);
+  color: var(--error);
 }
 .ok {
   color: var(--down);
@@ -130,15 +232,30 @@ body {
 .empty {
   color: var(--muted);
 }
+.watchlist .error,
+.watchlist .degraded,
+.watchlist .loading,
+.watchlist .empty {
+  margin: 4px 20px;
+  font-size: 13px;
+}
 
-/* 详情页（阶段3） */
+/* ---------- 详情页（头部 + 图表卡片） ---------- */
 .detail {
   flex: 1 1 auto;
-  padding: 12px;
+  padding: 16px;
+}
+.detail-head {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
 }
 .detail-head .price {
-  font-size: 28px;
+  font-size: 30px;
   font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.3px;
 }
 .detail-head.up .price {
   color: var(--up);
@@ -146,25 +263,62 @@ body {
 .detail-head.down .price {
   color: var(--down);
 }
-.chart-block {
-  margin-top: 12px;
-  border: 1px solid var(--line);
-  border-radius: 8px;
-  padding: 8px;
+/* 涨跌胶囊 */
+.detail-head .sub {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  margin-top: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  background: var(--fill);
 }
-.period-tabs button.active {
-  border-color: var(--accent);
-  color: var(--accent);
+.detail-head.up .sub {
+  color: #b3241f;
+  background: rgba(226, 60, 60, 0.12);
+}
+.detail-head.down .sub {
+  color: #0e7a5c;
+  background: rgba(27, 167, 132, 0.14);
+}
+.detail-head .sym {
+  display: block;
+  margin-top: 8px;
+  color: var(--muted);
+  font-size: 12px;
 }
 
-/* 弹层 */
+.chart-block {
+  margin-top: 12px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 12px;
+}
+.chart-block h4 {
+  margin: 0 0 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.period-tabs {
+  margin-bottom: 8px;
+}
+
+/* ---------- 底部 Sheet 弹层（iOS Modal Presentation） ---------- */
 .modal-backdrop {
   position: fixed;
   inset: 0;
-  background: rgba(0, 0, 0, 0.3);
+  background: rgba(0, 0, 0, 0.32);
+  -webkit-backdrop-filter: blur(3px);
+  backdrop-filter: blur(3px);
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   justify-content: center;
+  animation: fadeIn 0.25s var(--ease);
   /* 必须显式设 z-index：ECharts 画布容器（zrender createRoot）是 position:relative 的定位元素，
      与 z-index:auto 的本弹窗同层、按 DOM 顺序绘制；图表在详情页（DOM 上后于看板）会盖住弹窗，
      表现为「打开分时图后无法添加股票」——输入框/按钮被画布挡住，点击与聚焦全部失效（踩坑 #20）。
@@ -172,16 +326,116 @@ body {
   z-index: 1000;
 }
 .modal {
-  background: #fff;
-  border-radius: 10px;
-  padding: 16px;
-  width: 280px;
+  width: 100%;
+  max-width: 420px;
+  margin: 0 auto;
+  background: var(--card);
+  border-radius: 14px 14px 0 0;
+  padding: 8px 20px calc(20px + env(safe-area-inset-bottom, 0px));
   display: flex;
   flex-direction: column;
-  gap: 10px;
+  gap: 14px;
+  animation: sheetUp 0.32s var(--ease);
+  max-height: 88vh;
+  overflow-y: auto;
+}
+.sheet-grabber {
+  width: 36px;
+  height: 5px;
+  border-radius: 999px;
+  background: rgba(60, 60, 67, 0.3);
+  margin: 0 auto 10px;
+}
+.modal h3 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: 700;
+  text-align: center;
+}
+.modal .hint {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+}
+.modal label {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+}
+.modal input,
+.modal select {
+  width: 100%;
+  border: none;
+  border-radius: 10px;
+  background: var(--fill);
+  padding: 11px 12px;
+  font: inherit;
+  font-size: 15px;
+  color: var(--fg);
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+.modal input:focus,
+.modal select:focus {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
 }
 .modal-actions {
   display: flex;
-  justify-content: flex-end;
-  gap: 8px;
+  gap: 10px;
+  margin-top: 4px;
+}
+.modal-actions button {
+  flex: 1;
+  border: none;
+  border-radius: 12px;
+  padding: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--accent);
+  background: var(--fill);
+  transition: transform 0.15s var(--ease), opacity 0.15s;
+}
+.modal-actions button:active {
+  transform: scale(0.97);
+  opacity: 0.8;
+}
+.modal-actions button[type='submit'] {
+  background: var(--accent);
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}
+.modal-actions button:disabled {
+  opacity: 0.5;
+}
+.modal .error {
+  font-size: 13px;
+  margin: 0;
+}
+
+@keyframes sheetUp {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .modal-backdrop,
+  .modal {
+    animation: none;
+  }
 }

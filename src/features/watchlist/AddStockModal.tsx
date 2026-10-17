@@ -34,6 +34,7 @@ export function AddStockModal({ groups, onAdd, onClose }: Props) {
   return (
     <div className="modal-backdrop" role="dialog" aria-modal="true" aria-label="添加自选">
       <form className="modal" onSubmit={submit}>
+        <div className="sheet-grabber" aria-hidden="true" />
         <h3>添加自选股</h3>
         <label>
           代码
