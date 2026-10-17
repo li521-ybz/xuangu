@@ -83,7 +83,7 @@ export function ChartPage({ symbol, quote }: Props) {
           ))}
         </div>
         {candles.length ? (
-          <ChartCanvas points={candles} kind="kline" />
+          <ChartCanvas points={candles} kind="kline" period={period} />
         ) : (
           <p className="empty">暂无K线数据</p>
         )}

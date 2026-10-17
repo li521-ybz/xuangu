@@ -19,9 +19,9 @@ export interface Quote {
   time?: string;
 }
 
-// 日 K / 周 K / 月 K 一根 K 线
+// 日K / 30分K / 60分K 一根 K 线
 export interface Candle {
-  date: string; // YYYY-MM-DD
+  date: string; // 日K：YYYY-MM-DD；分钟K：YYYYMMDDHHmm（如 202610161400）
   open: number;
   high: number;
   low: number;
