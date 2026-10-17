@@ -3,7 +3,7 @@
 //   主条件（日K，均按开关启用，全部 AND）：
 //     1. 涨停后 3–10 交易日内（取窗口内最近一个涨停日 T 作锚点）
 //     2. 缩量：T+1 至最新一日内，有任一交易日成交量 ≤ max(涨停日量, 次日量) × 55%
-//     3. 不破涨停最低点：T+1 至最新一日内最低价均 ≥ 涨停日最低价
+//     3. 不破首板最低价：T+1 至最新一日内最低价均 ≥ 涨停连续段首板日最低价（连板取第一个涨停日；2026-10-17 21:36 由「不破涨停最低点」修改）
 //     4. 不破 20 日线：T+1 至最新一日内每日收盘价均 > 当日 MA20
 //   买点条件（按距涨停日数自动分支，与主条件 AND；口径：用户 2026-10-17 21:09 澄清）：
 //     5. 最新收盘 > MA10（日K）
@@ -34,7 +34,7 @@ export const CROSS_WITHIN = 5;
 export interface ConditionToggles {
   limitUpWindow: boolean; // 涨停后 3–10 日内
   shrink: boolean; // 缩量至 55% 及以下
-  notBreakLimitLow: boolean; // 不破涨停最低点
+  notBreakLimitLow: boolean; // 不破首板最低价（连板取第一个涨停日）
   notBreakMa20: boolean; // 不破 20 日线
   closeAboveMa10: boolean; // 收盘价 > 10 日线
   bollNarrow: boolean; // 30 分 BOLL 缩口 + 30 分 13/25 买点（两分支均生效）
@@ -114,6 +114,17 @@ export function findLimitUpIndex(
   return -1;
 }
 
+/**
+ * 涨停连续段的首板日：从 t 往前回溯，前一日也是涨停则继续（二板/三板…取第一个涨停日）。
+ * 单板时返回 t 本身。供「不破首板最低价」定基准低点（用户 2026-10-17 21:36 修改，
+ * 原「不破涨停最低点」直接取锚点日 T 的最低价）。
+ */
+export function firstLimitUpInRun(candles: Candle[], t: number, code = '', name = ''): number {
+  let first = t;
+  while (first > 0 && isLimitUp(candles, first - 1, code, name)) first--;
+  return first;
+}
+
 /** 主条件评估（日K）。窗口内无涨停 → 直接不过。 */
 export function evalMainConditions(dayCandles: Candle[], opts: MainOptions = {}): MainResult {
   const toggles = { ...DEFAULT_TOGGLES, ...(opts.toggles ?? {}) };
@@ -156,12 +167,13 @@ export function evalMainConditions(dayCandles: Candle[], opts: MainOptions = {})
     }
   }
 
-  // 不破涨停最低点：T+1 ~ 最新 最低价 ≥ 涨停日最低价
+  // 不破首板最低价：T+1 ~ 最新 最低价 ≥ 涨停连续段首板日最低价（连板取第一个涨停日）
   if (toggles.notBreakLimitLow) {
-    const limitLow = c[t].low;
+    const firstT = firstLimitUpInRun(c, t, opts.code ?? '', opts.name ?? '');
+    const limitLow = c[firstT].low;
     for (let i = t + 1; i < c.length; i++) {
       if (c[i].low < limitLow) {
-        failReasons.push('跌破涨停最低价');
+        failReasons.push('跌破首板最低价');
         break;
       }
     }

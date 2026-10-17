@@ -9,6 +9,7 @@ import {
   evalBuyPoint,
   evalMainConditions,
   findLimitUpIndex,
+  firstLimitUpInRun,
   isLimitUp,
   limitPctFor,
   DEFAULT_TOGGLES
@@ -83,6 +84,13 @@ describe('涨停日查找（窗口内最近一个）', () => {
     expect(findLimitUpIndex(c, '600000', '测试', 3, 10)).toBe(-1);
     expect(findLimitUpIndex(c, '600000', '测试', 0, 0)).toBe(22);
   });
+
+  it('firstLimitUpInRun：单板返回自身；连板回溯到第一个涨停日', () => {
+    const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
+    const c = mk([...pre, 11.21, 12.33, 12.4]); // 20、21 连续两个涨停
+    expect(firstLimitUpInRun(c, 21, '600000', '测试')).toBe(20);
+    expect(firstLimitUpInRun(c, 20, '600000', '测试')).toBe(20);
+  });
 });
 
 describe('主条件评估（日K）', () => {
@@ -112,14 +120,38 @@ describe('主条件评估（日K）', () => {
     expect(r.failReasons).toEqual(['未缩量至 55%（最低 70%）']);
   });
 
-  it('跌破涨停最低价 → 不过', () => {
+  it('单板：跌破首板（=涨停日）最低价 → 不过', () => {
     const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
     const closes = [...pre, 11.21, 11.25, 11.22, 11.3, 11.35];
     const lows = [...pre.map((c) => c * 0.99), 11, 10.9, 11.1, 11.15, 11.2]; // T+1 破 11.0
     const vols = [...pre.map(() => 1000), 10000, 8000, 5000, 7000, 6000];
     const r = evalMainConditions(mk(closes, lows, vols), { code: '600000', name: '测试' });
     expect(r.pass).toBe(false);
-    expect(r.failReasons).toEqual(['跌破涨停最低价']);
+    expect(r.failReasons).toEqual(['跌破首板最低价']);
+  });
+
+  it('二板：T+1 低点介于首板与二板低点之间 → 过（基准取首板低点，非二板）', () => {
+    const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
+    // 首板 T1=20（low 11.0）→ 二板 T2=21（low 11.4）→ T+1 低点 11.2：破二板低点、不破首板低点
+    const closes = [...pre, 11.21, 12.33, 12.4, 12.5, 12.55];
+    const lows = [...pre.map((c) => c * 0.99), 11.0, 11.4, 11.2, 11.5, 11.6];
+    const vols = [...pre.map(() => 1000), 10000, 8000, 4000, 7000, 6000]; // 最低 4000 = 基准(max(8000,4000)) 50%
+    const r = evalMainConditions(mk(closes, lows, vols), { code: '600000', name: '测试' });
+    expect(r.pass).toBe(true);
+    expect(r.limitUpIndex).toBe(21);
+    expect(r.daysSinceLimitUp).toBe(3);
+    expect(r.shrinkActual).toBe(0.5);
+    expect(r.failReasons).toEqual([]);
+  });
+
+  it('二板：T+1 破首板低点 → 不过（即便未破二板低点）', () => {
+    const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
+    const closes = [...pre, 11.21, 12.33, 12.4, 12.5, 12.55];
+    const lows = [...pre.map((c) => c * 0.99), 11.0, 11.4, 10.9, 11.5, 11.6]; // T+1 破首板 11.0
+    const vols = [...pre.map(() => 1000), 10000, 8000, 4000, 7000, 6000];
+    const r = evalMainConditions(mk(closes, lows, vols), { code: '600000', name: '测试' });
+    expect(r.pass).toBe(false);
+    expect(r.failReasons).toEqual(['跌破首板最低价']);
   });
 
   it('跌破 MA20 → 不过', () => {

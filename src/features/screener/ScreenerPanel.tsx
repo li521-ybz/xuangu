@@ -20,7 +20,7 @@ interface Item {
 const MAIN_ITEMS: Item[] = [
   { key: 'limitUpWindow', label: '涨停后 3–10 日内' },
   { key: 'shrink', label: '缩量至 55% 及以下', hint: '对比涨停日/次日最高量' },
-  { key: 'notBreakLimitLow', label: '不破涨停最低价' },
+  { key: 'notBreakLimitLow', label: '不破首板最低价', hint: '连板取第一个涨停日最低价' },
   { key: 'notBreakMa20', label: '不破 20 日线' }
 ];
 
