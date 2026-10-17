@@ -5,10 +5,11 @@
 //     2. 缩量：T+1 至最新一日内，有任一交易日成交量 ≤ max(涨停日量, 次日量) × 55%
 //     3. 不破涨停最低点：T+1 至最新一日内最低价均 ≥ 涨停日最低价
 //     4. 不破 20 日线：T+1 至最新一日内每日收盘价均 > 当日 MA20
-//   买点条件（按距涨停日数自动分支，与主条件 AND）：
+//   买点条件（按距涨停日数自动分支，与主条件 AND；口径：用户 2026-10-17 21:09 澄清）：
 //     5. 最新收盘 > MA10（日K）
-//     6. 30 分 BOLL(45,2) 带宽近 3 根持续下降（缩口）——两分支同参数（2026-10-17 用户修正，原 ≤6 日为 (20,2)）
-//     7. 距涨停 ≤6 日：30 分 MA13 上穿 MA25（5 根内）；距涨停 >6 日：60 分 MA13 上穿 MA25（5 根内）
+//     6. 30 分 BOLL(45,2) 带宽近 3 根持续下降（缩口）——两分支同参数
+//     7. 距涨停 ≤6 日：仅 30 分 MA13 上穿 MA25（5 根内）
+//        距涨停 >6 日：30 分 MA13 上穿 MA25（5 根内）＋ 60 分 MA13 上穿 MA25（5 根内）
 // 已知限制：日K 为前复权（qfq），窗口内遇除权时涨停识别可能漏检（v1 接受，见开发计划）。
 import type { Candle } from '../../lib/types';
 import { movingAverage } from '../chart/ma';
@@ -20,7 +21,7 @@ export const SHRINK_RATIO = 0.55;
 /** 涨停后窗口 [min, max] 交易日 */
 export const WINDOW_MIN = 3;
 export const WINDOW_MAX = 10;
-/** 买点分支阈值：距涨停 ≤ 该日用 30 分 13/25 金叉；> 该日用 60 分 13/25 金叉（BOLL 两分支同参数） */
+/** 买点分支阈值：距涨停 ≤ 该日仅 30 分 13/25 金叉；> 该日追加 60 分 13/25 金叉（BOLL 两分支同参 (45,2)） */
 export const NEAR_DAYS = 6;
 /** BOLL 参数：两分支统一 (45,2)（2026-10-17 20:40 用户修正，≤6 日分支原为 (20,2)） */
 export const BOLL_N = 45;
@@ -36,7 +37,7 @@ export interface ConditionToggles {
   notBreakLimitLow: boolean; // 不破涨停最低点
   notBreakMa20: boolean; // 不破 20 日线
   closeAboveMa10: boolean; // 收盘价 > 10 日线
-  bollNarrow: boolean; // 30 分 BOLL 缩口（≤6 日分支含 30 分 13/25 买点）
+  bollNarrow: boolean; // 30 分 BOLL 缩口 + 30 分 13/25 买点（两分支均生效）
   maCross60: boolean; // 60 分 13/25 买点（>6 日分支）
 }
 
@@ -267,7 +268,7 @@ export function crossUp(candles: Candle[], fast: number, slow: number, within = 
   return false;
 }
 
-/** 买点评估：按距涨停日数自动切换 6 日内 / 6 日外分支 */
+/** 买点评估：按距涨停日数自动切换分支（口径：用户 2026-10-17 21:09 澄清——≤6 日仅 30 分 13/25；>6 日 30 分 + 60 分 13/25） */
 export function evalBuyPoint(input: BuyPointInput): BuyPointResult {
   const toggles = { ...DEFAULT_TOGGLES, ...(input.toggles ?? {}) };
   const nearDays = input.nearDays ?? NEAR_DAYS;
@@ -277,28 +278,31 @@ export function evalBuyPoint(input: BuyPointInput): BuyPointResult {
   const cAbove = closeAboveMa10(input.dayCandles);
   if (toggles.closeAboveMa10 && !cAbove) failReasons.push('收盘未站上 MA10');
 
-  let bollOk: boolean;
-  let crossOk: boolean;
-  if (branch === 'near') {
-    bollOk = bollNarrowing(input.m30, BOLL_N, BOLL_P);
-    crossOk = crossUp(input.m30, 13, 25);
-  } else {
-    bollOk = bollNarrowing(input.m30, BOLL_N, BOLL_P);
-    crossOk = crossUp(input.m60, 13, 25);
-  }
+  // BOLL 缩口：两分支同参 (45,2)，均看 30 分钟
+  const bollOk = bollNarrowing(input.m30, BOLL_N, BOLL_P);
   if (toggles.bollNarrow && !bollOk) {
     failReasons.push('30 分 BOLL(45,2) 未缩口');
   }
-  if (branch === 'near') {
-    if (toggles.bollNarrow && !crossOk) failReasons.push('30 分 MA13/25 未金叉');
-  } else if (toggles.maCross60 && !crossOk) {
-    failReasons.push('60 分 MA13/25 未金叉');
+
+  // 30 分 13/25 金叉：两分支都要（≤6 日分支的唯一买点）
+  const cross30Ok = crossUp(input.m30, 13, 25);
+  if (toggles.bollNarrow && !cross30Ok) {
+    failReasons.push('30 分 MA13/25 未金叉');
+  }
+
+  // 60 分 13/25 金叉：仅 >6 日分支额外要求
+  let cross60Ok = true;
+  if (branch === 'far') {
+    cross60Ok = crossUp(input.m60, 13, 25);
+    if (toggles.maCross60 && !cross60Ok) {
+      failReasons.push('60 分 MA13/25 未金叉');
+    }
   }
 
   return {
     pass: failReasons.length === 0,
     branch,
-    checks: { closeAboveMa10: cAbove, bollNarrow: bollOk, maCross: crossOk },
+    checks: { closeAboveMa10: cAbove, bollNarrow: bollOk, maCross: cross30Ok && cross60Ok },
     failReasons
   };
 }

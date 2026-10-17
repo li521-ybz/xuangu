@@ -199,13 +199,25 @@ describe('买点评估（按距涨停日数分支）', () => {
    * 30 分：前 40 根震荡 ±0.5、中 10 根收敛 ±0.1、末 5 根缓抬。
    * 满足 BOLL(45,2) 缩口（末 3 根带宽 0.16979>0.16752>0.16497 持续下降）
    * 与 13/25 金叉（i=52，落在最近 5 根内）。
-   * 2026-10-17 用户修正后两分支 BOLL 同参 (45,2)，近/远分支复用同一 fixture。
+   * 2026-10-17 21:09 用户澄清：两分支均要求 30 分 13/25 金叉，近/远分支复用同一 fixture。
    */
   const m30Narrow = (() => {
     const c: number[] = [];
     for (let i = 0; i < 40; i++) c.push(i % 2 ? 9.5 : 10.5);
     for (let i = 0; i < 10; i++) c.push(i % 2 ? 9.9 : 10.1);
     for (let i = 0; i < 5; i++) c.push(10 + i * 0.05);
+    return mk(c);
+  })();
+  /**
+   * 30 分：前 40 根震荡 ±0.5、中 10 根收敛 ±0.1、末 5 根缓降（9.90→9.86）。
+   * 满足 BOLL(45,2) 缩口（末 3 根带宽 0.17019>0.16778>0.16531 持续下降），
+   * 但 MA13 末 5 根全程低于 MA25（无上穿）——供 >6 日分支「30 分未金叉」用例。
+   */
+  const m30NarrowNoCross = (() => {
+    const c: number[] = [];
+    for (let i = 0; i < 40; i++) c.push(i % 2 ? 9.5 : 10.5);
+    for (let i = 0; i < 10; i++) c.push(i % 2 ? 9.9 : 10.1);
+    for (let i = 0; i < 5; i++) c.push(9.9 - i * 0.01);
     return mk(c);
   })();
   const m60Cross = mk([...Array.from({ length: 25 }, () => 10), 10.1, 10.2, 10.3, 10.4, 10.5]);
@@ -226,7 +238,7 @@ describe('买点评估（按距涨停日数分支）', () => {
     expect(r.failReasons).toEqual(['30 分 BOLL(45,2) 未缩口', '30 分 MA13/25 未金叉']);
   });
 
-  it('>6 日分支：30 分 BOLL(45,2) 缩口 + 60 分 13/25 金叉 → 过', () => {
+  it('>6 日分支：30 分 BOLL(45,2) 缩口 + 30 分/60 分 13/25 金叉 → 过', () => {
     const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Narrow, m60: m60Cross, daysSinceLimitUp: 8 });
     expect(r.branch).toBe('far');
     expect(r.pass).toBe(true);
@@ -242,6 +254,20 @@ describe('买点评估（按距涨停日数分支）', () => {
       m60: m60Flat,
       daysSinceLimitUp: 9,
       toggles: { ...DEFAULT_TOGGLES, maCross60: false }
+    });
+    expect(r2.pass).toBe(true);
+  });
+
+  it('>6 日分支：30 分未金叉 → 不过；关该开关后放行', () => {
+    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30NarrowNoCross, m60: m60Cross, daysSinceLimitUp: 9 });
+    expect(r.branch).toBe('far');
+    expect(r.failReasons).toEqual(['30 分 MA13/25 未金叉']);
+    const r2 = evalBuyPoint({
+      dayCandles: mk(dayUp),
+      m30: m30NarrowNoCross,
+      m60: m60Cross,
+      daysSinceLimitUp: 9,
+      toggles: { ...DEFAULT_TOGGLES, bollNarrow: false }
     });
     expect(r2.pass).toBe(true);
   });

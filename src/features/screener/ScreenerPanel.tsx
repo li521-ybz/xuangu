@@ -26,7 +26,7 @@ const MAIN_ITEMS: Item[] = [
 
 const BUY_ITEMS: Item[] = [
   { key: 'closeAboveMa10', label: '收盘价 > 10 日线' },
-  { key: 'bollNarrow', label: '30 分 BOLL 缩口 + 13/25 买点', hint: '两分支均 BOLL(45,2)｜≤6 日配 30 分、>6 日配 60 分' },
+  { key: 'bollNarrow', label: '30 分 BOLL 缩口 + 13/25 买点', hint: '两分支均 30 分 BOLL(45,2) + 30 分 13/25' },
   { key: 'maCross60', label: '60 分 13/25 买点', hint: '仅 >6 日分支生效' }
 ];
 
@@ -65,7 +65,7 @@ export function ScreenerPanel({ toggles, onToggle, onRun, running, progress, tot
         {BUY_ITEMS.map((it) => (
           <ToggleRow key={it.key} item={it} checked={toggles[it.key]} onChange={() => onToggle(it.key)} />
         ))}
-        <p className="cond-hint">两分支均要求 30 分 BOLL(45,2) 缩口；按距涨停日数切换：≤6 日再要求 30 分 13/25 金叉，&gt;6 日再要求 60 分 13/25 金叉。</p>
+        <p className="cond-hint">两分支均要求 30 分 BOLL(45,2) 缩口 + 30 分 13/25 金叉；距涨停 &gt;6 日的分支额外要求 60 分 13/25 金叉。</p>
       </div>
       <button className="run-btn" onClick={onRun} disabled={running || total === 0}>
         {running ? '筛选中…' : '开始筛选'}
