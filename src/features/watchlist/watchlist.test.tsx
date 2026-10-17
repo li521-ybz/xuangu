@@ -19,8 +19,21 @@ describe('WatchlistPage 交互', () => {
     await user.type(screen.getByLabelText('股票代码'), 'sh600000');
     await user.type(screen.getByLabelText('股票名称'), '浦发银行');
     await user.click(screen.getByRole('button', { name: '添加' }));
-    expect(await screen.findByText('浦发银行')).toBeInTheDocument();
+    // 一页式仪表盘：首列严格只显示股票代码（用户 2026-10-17 拍板），名称不入列表行
+    expect(await screen.findByText('sh600000')).toBeInTheDocument();
+    expect(screen.queryByText('浦发银行')).not.toBeInTheDocument();
     expect(screen.getByTestId('row-sh600000')).toBeInTheDocument();
+  });
+
+  it('表格三列表头：股票代码/现价/涨跌幅', async () => {
+    const user = userEvent.setup();
+    render(<WatchlistPage repo={new InMemoryStockRepository()} />);
+    await user.click(screen.getByLabelText('添加自选'));
+    await user.type(screen.getByLabelText('股票代码'), 'sh600000');
+    await user.click(screen.getByRole('button', { name: '添加' }));
+    expect(await screen.findByText('股票代码')).toBeInTheDocument();
+    expect(screen.getByText('现价')).toBeInTheDocument();
+    expect(screen.getByText('涨跌幅')).toBeInTheDocument();
   });
 
   it('分组筛选：切到持仓只显示该组', async () => {

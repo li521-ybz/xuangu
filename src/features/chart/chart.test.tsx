@@ -1,17 +1,21 @@
-// 阶段3 详情页：分时+日K 同屏、周期切换、红涨绿跌头部
+// 阶段3 图表区：分时+日K 同屏、周期切换
+// 2026-10-17 一页式仪表盘合并后：本组件只负责图表（头部价格卡已移除，
+// 价格/涨跌幅改由看板页三列表格按行展示）；由 App 作为 children 注入看板页右栏。
 import { describe, it, expect } from 'vitest';
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ChartPage } from './ChartPage';
-import type { Quote } from '../../lib/types';
-
-const up: Quote = { symbol: 'sh600000', name: '浦发', price: 11.2, prevClose: 11, change: 0.2, changePct: 1.818 };
 
 describe('ChartPage', () => {
-  it('同屏展示分时图与日K两块', () => {
+  it('同屏展示分时图与K线两块', () => {
     render(<ChartPage symbol="sh600000" />);
     expect(screen.getByTestId('intraday-chart')).toBeInTheDocument();
     expect(screen.getByTestId('kline-chart')).toBeInTheDocument();
+  });
+
+  it('分时标题标注当前股票代码', () => {
+    render(<ChartPage symbol="sh600000" />);
+    expect(within(screen.getByTestId('intraday-chart')).getByText('sh600000')).toBeInTheDocument();
   });
 
   it('周期 Tab 切换（日K/30分/60分）', async () => {
@@ -22,16 +26,5 @@ describe('ChartPage', () => {
     await user.click(m30);
     expect(m30).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByTestId('period')).toHaveTextContent('m30');
-  });
-
-  it('头部显示名称与代码（quote 有名时「名称 · 代码」）', () => {
-    render(<ChartPage symbol="sh600000" quote={up} />);
-    expect(screen.getByText('浦发 · sh600000')).toBeInTheDocument();
-  });
-
-  it('上涨头部红', () => {
-    render(<ChartPage symbol="sh600000" quote={up} />);
-    const head = screen.getByText('11.20').closest('.detail-head')!;
-    expect(head.className).toContain('up');
   });
 });

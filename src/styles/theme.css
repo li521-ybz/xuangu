@@ -34,16 +34,9 @@ button {
 }
 
 .app {
-  display: flex;
+  max-width: 1440px;
+  margin: 0 auto;
   min-height: 100vh;
-}
-
-/* 宽屏双栏：左列表 + 右详情；手机单栏 */
-.app.wide {
-  flex-direction: row;
-}
-.app.narrow {
-  flex-direction: column;
 }
 
 /* ---------- 导航栏（iOS Large Title + 毛玻璃） ---------- */
@@ -101,7 +94,6 @@ button {
 
 /* ---------- 分段控件（iOS Segmented Control） ---------- */
 .segmented,
-.group-tabs,
 .period-tabs {
   display: inline-flex;
   background: var(--fill);
@@ -110,7 +102,6 @@ button {
   gap: 2px;
 }
 .segmented .seg,
-.group-tabs .tab,
 .period-tabs button {
   border: none;
   background: transparent;
@@ -122,43 +113,113 @@ button {
   transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
 .segmented .seg.active,
-.group-tabs .tab.active,
 .period-tabs button.active {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
 }
-.group-tabs .tab:active,
 .period-tabs button:active {
   opacity: 0.7;
 }
 
-/* ---------- 左栏（自选看板） ---------- */
+/* ---------- 一页式仪表盘（2026-10-17）：左分组导航 + 右「表格 + 图表」 ---------- */
 .watchlist {
-  flex: 1 1 320px;
-  max-width: 420px;
-  border-right: 1px solid var(--line);
-  padding: 0 0 24px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 12px;
+  padding: 0 16px 24px;
 }
-.group-tabs {
-  margin: 4px 16px 12px;
+.app.wide .watchlist {
+  grid-template-columns: 160px minmax(0, 1fr);
+  gap: 16px;
+}
+/* 分组导航：窄屏横排 chips；宽屏左侧竖排白卡（sticky 常驻） */
+.group-side {
+  display: flex;
+  flex-direction: row;
   flex-wrap: wrap;
+  gap: 6px;
+  align-content: start;
+  margin: 4px 0 12px;
+}
+.app.wide .group-side {
+  position: sticky;
+  top: 76px;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  margin: 16px 0 0;
+  padding: 8px;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  height: fit-content;
+}
+.group-side .tab {
+  border: none;
+  background: var(--fill);
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  text-align: left;
+  transition: background 0.2s var(--ease), color 0.2s var(--ease);
+}
+.app.wide .group-side .tab {
+  background: transparent;
+}
+.group-side .tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.group-side .tab:active {
+  opacity: 0.7;
 }
 
-/* Inset 分组列表（白卡 + 行内 hairline） */
-.stock-list {
-  list-style: none;
-  margin: 0 16px;
-  padding: 0;
+/* 右主区：导航栏 + 股票表格 + 图表区。
+   min-width:0 必须保留：grid/flex 子项不设它时，图表容器（width:100% div）
+   会把轨道撑破或让右栏按内容分宽（2026-10-17 flex-basis 坑的同类教训） */
+.board-main {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+/* ---------- 股票表格（三列：股票代码 / 现价 / 涨跌幅） ---------- */
+.stock-table {
   background: var(--card);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
   overflow: hidden;
 }
+.tbl-head,
 .stock-row {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 96px 116px 32px;
   align-items: center;
-  gap: 10px;
-  padding: 12px 16px;
+  gap: 8px;
+  padding: 10px 14px;
+}
+.tbl-head {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--muted);
+  border-bottom: 1px solid var(--line);
+}
+.tbl-head span:nth-child(2),
+.tbl-head span:nth-child(3) {
+  text-align: right;
+}
+/* 宽屏：表格区独立滚动，图表区固定在下方，不用翻页找图 */
+.app.wide .stock-list {
+  max-height: 34vh;
+  overflow-y: auto;
+}
+.stock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stock-row {
   cursor: pointer;
   transition: background 0.15s;
 }
@@ -168,21 +229,33 @@ button {
 .stock-row:hover {
   background: rgba(0, 0, 0, 0.02);
 }
-.stock-row:active {
-  background: rgba(0, 0, 0, 0.04);
+.stock-row.selected {
+  background: rgba(0, 122, 255, 0.1);
 }
-.stock-name {
+.cell-code {
   font-weight: 600;
-  font-size: 16px;
+  font-size: 15px;
+  font-variant-numeric: tabular-nums;
 }
-.stock-symbol {
-  color: var(--muted);
-  font-size: 12px;
-  align-self: flex-start;
-  margin-top: 3px;
+.num {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  font-size: 14px;
+  font-weight: 600;
+}
+.cell-price.up,
+.cell-pct.up {
+  color: var(--up);
+}
+.cell-price.down,
+.cell-pct.down {
+  color: var(--down);
+}
+.cell-price.flat,
+.cell-pct.flat {
+  color: var(--flat);
 }
 .row-del {
-  margin-left: auto;
   border: none;
   background: transparent;
   color: var(--muted);
@@ -240,64 +313,23 @@ button {
   font-size: 13px;
 }
 
-/* ---------- 详情页（头部 + 图表卡片） ---------- */
-.detail {
-  /* 必须 basis:0：flex-basis:auto 时右栏按内容固有宽度分配，图表容器
-     （width:100% div）贡献极小，右栏只能拿到约 1/3 宽度，表现为卡片窄、
-     右侧大片空白（1020px 窗口实测只分到 360px）；1 1 0 后按 grow 份额
-     稳定拿满「总宽 − 左栏」，再配合子元素 max-width:760 居中/铺满 */
-  flex: 1 1 0;
+/* ---------- 图表区（模块③，由看板页 children 注入） ---------- */
+.charts {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
   min-width: 0;
-  padding: 16px;
 }
-/* 大屏单边空白 → 左右对称留白（iPad/macOS 横屏标准：内容居中 + 宽度约束，
-   而非拉伸图表撑满；≤760px 容器时自动全宽无副作用） */
-.detail > * {
-  max-width: 760px;
+/* 超宽屏内容居中限宽（iPad/macOS 横屏标准：内容居中而非拉伸图表；窄屏自动铺满） */
+.charts > * {
+  max-width: 1100px;
+  width: 100%;
   margin-inline: auto;
 }
-.detail-head {
-  background: var(--card);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 16px;
-}
-.detail-head .price {
-  font-size: 30px;
-  font-weight: 700;
-  font-variant-numeric: tabular-nums;
-  letter-spacing: -0.3px;
-}
-.detail-head.up .price {
-  color: var(--up);
-}
-.detail-head.down .price {
-  color: var(--down);
-}
-/* 涨跌胶囊 */
-.detail-head .sub {
-  display: inline-flex;
-  align-items: center;
-  gap: 2px;
-  margin-top: 4px;
-  padding: 3px 10px;
-  border-radius: 999px;
-  font-size: 13px;
-  font-weight: 600;
-  color: var(--muted);
-  background: var(--fill);
-}
-.detail-head.up .sub {
-  color: #b3241f;
-  background: rgba(226, 60, 60, 0.12);
-}
-.detail-head.down .sub {
-  color: #0e7a5c;
-  background: rgba(27, 167, 132, 0.14);
-}
-.detail-head .sym {
-  display: block;
-  margin-top: 8px;
+/* 分时标题右侧的选中股票代码标注 */
+.chart-cap {
+  margin-left: 8px;
+  font-weight: 400;
   color: var(--muted);
   font-size: 12px;
 }

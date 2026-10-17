@@ -1,4 +1,6 @@
-// 应用外壳：宽屏双栏（左列表 + 右详情）/ 手机单栏（点行进详情）
+// 应用外壳：一页式仪表盘（2026-10-17 起，替代原宽屏双栏/手机单栏两套结构）
+// WatchlistPage 内部：宽屏左侧竖排分组导航 + 右侧「股票表格 → 图表区」；窄屏纵向堆叠。
+// 图表区（模块③ ChartPage）以 children 注入看板页，模块边界不互相 import。
 import { useEffect, useState } from 'react';
 import { WatchlistPage } from '../watchlist/WatchlistPage';
 import { ChartPage } from '../chart/ChartPage';
@@ -24,10 +26,12 @@ export default function App() {
     <div className={`app ${wide ? 'wide' : 'narrow'}`}>
       <WatchlistPage
         repo={repo}
+        selected={selected}
         onSelect={setSelected}
         onOpenSettings={() => setSettingsOpen(true)}
-      />
-      {selected && <ChartPage symbol={selected} />}
+      >
+        {selected && <ChartPage symbol={selected} />}
+      </WatchlistPage>
       {settingsOpen && <SettingsModal onSave={applyToken} onClose={() => setSettingsOpen(false)} />}
     </div>
   );
