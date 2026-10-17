@@ -167,6 +167,13 @@ button {
 .app.wide .group-side .tab {
   background: transparent;
 }
+/* 宽屏选中态必须显式补 background：.group-side .tab.active 特异性 (0,3,0) 低于
+   .app.wide .group-side .tab (0,4,0)，不补则蓝底被 transparent 覆盖、只剩白字 →
+   白字白底整键隐身（用户 2026-10-17 线上反馈「点击最左侧按钮后按钮不可见」，踩坑 #24） */
+.app.wide .group-side .tab.active {
+  background: var(--accent);
+  color: #fff;
+}
 .group-side .tab.active {
   background: var(--accent);
   color: #fff;

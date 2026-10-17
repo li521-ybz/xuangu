@@ -38,3 +38,43 @@ describe('theme.css 弹层层级', () => {
     expect(ruleBlock(css, '.modal-backdrop')).toMatch(/z-index/);
   });
 });
+
+// 分组选中态可见性守卫（对应线上问题「点击最左侧分组按钮后按钮不可见」，2026-10-17，踩坑 #24）。
+//
+// 根因：宽屏下 .app.wide .group-side .tab { background: transparent } 特异性 (0,4,0)
+// 压过 .group-side .tab.active { background: var(--accent) } 的 (0,3,0)——选中按钮丢蓝底
+// 只剩 color:#fff 白字 → 白字白底整键隐身。窄屏无 .app.wide 前缀，故只有宽屏暴露。
+describe('theme.css 分组选中态可见性', () => {
+  const css = readFileSync(resolve(process.cwd(), 'src/styles/theme.css'), 'utf8');
+
+  // 从行首开始的规则匹配，避免 .group-side .tab.active 命中 .app.wide .group-side .tab.active 的子串
+  function lineStartRule(selector: string): string {
+    const escaped = selector.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+    const m = css.match(new RegExp(`^${escaped}\\s*\\{([^}]*)\\}`, 'm'));
+    return m ? m[1] : '';
+  }
+
+  function backgroundOf(block: string): string | null {
+    const bg = block.match(/background:\s*([^;]+)/);
+    return bg ? bg[1].trim() : null;
+  }
+
+  it('宽屏选中分组 tab 显式声明非透明 background（防被 .app.wide 前缀规则的 transparent 覆盖）', () => {
+    const block = lineStartRule('.app.wide .group-side .tab.active');
+    expect(
+      block,
+      '未找到 .app.wide .group-side .tab.active 规则：宽屏选中态会被 .app.wide .group-side .tab 的 transparent 覆盖，白字白底隐身（踩坑 #24）'
+    ).not.toBe('');
+    const bg = backgroundOf(block);
+    expect(bg, '宽屏选中态必须显式声明 background').not.toBeNull();
+    expect(bg, `background 不能为 transparent/none，否则白字白底隐身（当前: ${bg}）`).not.toMatch(/^(transparent|none)$/);
+  });
+
+  it('选中分组 tab 基础规则同样有实体 background（窄屏 chips 态同效）', () => {
+    const block = lineStartRule('.group-side .tab.active');
+    expect(block, '未找到 .group-side .tab.active 规则').not.toBe('');
+    const bg = backgroundOf(block);
+    expect(bg).not.toBeNull();
+    expect(bg).not.toMatch(/^(transparent|none)$/);
+  });
+});
