@@ -12,28 +12,32 @@ describe('WatchlistPage 交互', () => {
     expect(await screen.findByText('暂无自选，点 ＋ 添加')).toBeInTheDocument();
   });
 
-  it('添加自选股并展示', async () => {
+  it('添加自选股并展示（名称+代码两行）', async () => {
     const user = userEvent.setup();
     render(<WatchlistPage repo={new InMemoryStockRepository()} />);
     await user.click(screen.getByLabelText('添加自选'));
     await user.type(screen.getByLabelText('股票代码'), 'sh600000');
     await user.type(screen.getByLabelText('股票名称'), '浦发银行');
     await user.click(screen.getByRole('button', { name: '添加' }));
-    // 一页式仪表盘：首列严格只显示股票代码（用户 2026-10-17 拍板），名称不入列表行
-    expect(await screen.findByText('sh600000')).toBeInTheDocument();
-    expect(screen.queryByText('浦发银行')).not.toBeInTheDocument();
-    expect(screen.getByTestId('row-sh600000')).toBeInTheDocument();
+    // 三栏终端：中栏列表行显示名称+代码（用户 2026-10-17 拍板）
+    const row = await screen.findByTestId('row-sh600000');
+    expect(within(row).getByText('浦发银行')).toBeInTheDocument();
+    expect(within(row).getByText('sh600000')).toBeInTheDocument();
   });
 
-  it('表格三列表头：股票代码/现价/涨跌幅', async () => {
+  it('选中股票信息条：股票代码/现价/涨跌幅', async () => {
     const user = userEvent.setup();
-    render(<WatchlistPage repo={new InMemoryStockRepository()} />);
+    // 选中态由 App 层持有；单测直接注入 selected（与 App 集成路径一致）
+    render(<WatchlistPage repo={new InMemoryStockRepository()} selected="sh600000" />);
     await user.click(screen.getByLabelText('添加自选'));
     await user.type(screen.getByLabelText('股票代码'), 'sh600000');
     await user.click(screen.getByRole('button', { name: '添加' }));
-    expect(await screen.findByText('股票代码')).toBeInTheDocument();
-    expect(screen.getByText('现价')).toBeInTheDocument();
-    expect(screen.getByText('涨跌幅')).toBeInTheDocument();
+    // 右主区信息条出现（三段：股票代码/现价/涨跌幅）
+    const bar = await screen.findByTestId('quote-bar');
+    expect(within(bar).getByText('股票代码')).toBeInTheDocument();
+    expect(within(bar).getByText('现价')).toBeInTheDocument();
+    expect(within(bar).getByText('涨跌幅')).toBeInTheDocument();
+    expect(within(bar).getByText('sh600000')).toBeInTheDocument();
   });
 
   it('分组筛选：切到持仓只显示该组', async () => {

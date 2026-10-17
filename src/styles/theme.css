@@ -121,7 +121,7 @@ button {
   opacity: 0.7;
 }
 
-/* ---------- 一页式仪表盘（2026-10-17）：左分组导航 + 右「表格 + 图表」 ---------- */
+/* ---------- 一页式三栏终端（2026-10-17）：左分组导航 + 中股票列表 + 右主区 ---------- */
 .watchlist {
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -129,7 +129,7 @@ button {
   padding: 0 16px 24px;
 }
 .app.wide .watchlist {
-  grid-template-columns: 160px minmax(0, 1fr);
+  grid-template-columns: 150px 200px minmax(0, 1fr);
   gap: 16px;
 }
 /* 分组导航：窄屏横排 chips；宽屏左侧竖排白卡（sticky 常驻） */
@@ -175,7 +175,62 @@ button {
   opacity: 0.7;
 }
 
-/* 右主区：导航栏 + 股票表格 + 图表区。
+/* ---------- 中栏：股票列表（名称 + 代码两行） ---------- */
+.stock-col {
+  min-width: 0;
+  margin: 16px 0 0;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  overflow-y: auto;
+}
+.app.wide .stock-col {
+  position: sticky;
+  top: 76px;
+  max-height: calc(100vh - 92px);
+}
+.stock-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.stock-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.stock-item:not(:last-child) {
+  border-bottom: 1px solid var(--line);
+}
+.stock-item:hover {
+  background: rgba(0, 0, 0, 0.02);
+}
+.stock-item.selected {
+  background: rgba(0, 122, 255, 0.1);
+}
+.si-text {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  flex: 1;
+}
+.si-name {
+  font-weight: 600;
+  font-size: 15px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.si-code {
+  color: var(--muted);
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+
+/* 右主区：导航栏 + 信息条 + 图表区。
    min-width:0 必须保留：grid/flex 子项不设它时，图表容器（width:100% div）
    会把轨道撑破或让右栏按内容分宽（2026-10-17 flex-basis 坑的同类教训） */
 .board-main {
@@ -184,76 +239,43 @@ button {
   flex-direction: column;
 }
 
-/* ---------- 股票表格（三列：股票代码 / 现价 / 涨跌幅） ---------- */
-.stock-table {
+/* ---------- 选中股票信息条（股票代码/现价/涨跌幅，红涨绿跌） ---------- */
+.quote-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px 28px;
+  margin-top: 12px;
+  padding: 10px 14px;
   background: var(--card);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  overflow: hidden;
 }
-.tbl-head,
-.stock-row {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) 96px 116px 32px;
-  align-items: center;
+.qb-seg {
+  display: inline-flex;
+  align-items: baseline;
   gap: 8px;
-  padding: 10px 14px;
 }
-.tbl-head {
+.qb-label {
   font-size: 12px;
-  font-weight: 600;
   color: var(--muted);
-  border-bottom: 1px solid var(--line);
 }
-.tbl-head span:nth-child(2),
-.tbl-head span:nth-child(3) {
-  text-align: right;
-}
-/* 宽屏：表格区独立滚动，图表区固定在下方，不用翻页找图 */
-.app.wide .stock-list {
-  max-height: 34vh;
-  overflow-y: auto;
-}
-.stock-list {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-}
-.stock-row {
-  cursor: pointer;
-  transition: background 0.15s;
-}
-.stock-row:not(:last-child) {
-  border-bottom: 1px solid var(--line);
-}
-.stock-row:hover {
-  background: rgba(0, 0, 0, 0.02);
-}
-.stock-row.selected {
-  background: rgba(0, 122, 255, 0.1);
-}
-.cell-code {
-  font-weight: 600;
-  font-size: 15px;
+.qb-value {
+  font-size: 16px;
+  font-weight: 700;
   font-variant-numeric: tabular-nums;
 }
-.num {
-  text-align: right;
-  font-variant-numeric: tabular-nums;
-  font-size: 14px;
-  font-weight: 600;
-}
-.cell-price.up,
-.cell-pct.up {
+.qb-value.up {
   color: var(--up);
 }
-.cell-price.down,
-.cell-pct.down {
+.qb-value.down {
   color: var(--down);
 }
-.cell-price.flat,
-.cell-pct.flat {
+.qb-value.flat {
   color: var(--flat);
+}
+/* 数字对齐工具类（等宽数字，价格/涨跌幅滚动时不跳动） */
+.num {
+  font-variant-numeric: tabular-nums;
 }
 .row-del {
   border: none;
@@ -262,6 +284,7 @@ button {
   font-size: 14px;
   padding: 4px 6px;
   border-radius: 50%;
+  flex: none;
   transition: color 0.15s, background 0.15s;
 }
 .row-del:hover {
