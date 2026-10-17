@@ -7,9 +7,8 @@
 //     4. 不破 20 日线：T+1 至最新一日内每日收盘价均 > 当日 MA20
 //   买点条件（按距涨停日数自动分支，与主条件 AND）：
 //     5. 最新收盘 > MA10（日K）
-//     6. 距涨停 ≤6 日：30 分 BOLL(20,2) 带宽近 3 根持续下降（缩口）+ 30 分 MA13 上穿 MA25（5 根内）
-//        距涨停 >6 日：30 分 BOLL(45,2) 缩口
-//     7. 距涨停 >6 日：60 分 MA13 上穿 MA25（5 根内）
+//     6. 30 分 BOLL(45,2) 带宽近 3 根持续下降（缩口）——两分支同参数（2026-10-17 用户修正，原 ≤6 日为 (20,2)）
+//     7. 距涨停 ≤6 日：30 分 MA13 上穿 MA25（5 根内）；距涨停 >6 日：60 分 MA13 上穿 MA25（5 根内）
 // 已知限制：日K 为前复权（qfq），窗口内遇除权时涨停识别可能漏检（v1 接受，见开发计划）。
 import type { Candle } from '../../lib/types';
 import { movingAverage } from '../chart/ma';
@@ -21,9 +20,12 @@ export const SHRINK_RATIO = 0.55;
 /** 涨停后窗口 [min, max] 交易日 */
 export const WINDOW_MIN = 3;
 export const WINDOW_MAX = 10;
-/** 买点分支阈值：距涨停 ≤ 该日用 30 分(20,2) 分支，> 该日用 30 分(45,2)+60 分分支 */
+/** 买点分支阈值：距涨停 ≤ 该日用 30 分 13/25 金叉；> 该日用 60 分 13/25 金叉（BOLL 两分支同参数） */
 export const NEAR_DAYS = 6;
-/** BOLL 带宽「缩口」判定：最近该根数带宽持续下降 */
+/** BOLL 参数：两分支统一 (45,2)（2026-10-17 20:40 用户修正，≤6 日分支原为 (20,2)） */
+export const BOLL_N = 45;
+export const BOLL_P = 2;
+/** BOLL 缩口判定：带宽最近该根数持续下降 */
 export const NARROW_BARS = 3;
 /** MA13/25 金叉判定：最近该根数内发生上穿 */
 export const CROSS_WITHIN = 5;
@@ -278,14 +280,14 @@ export function evalBuyPoint(input: BuyPointInput): BuyPointResult {
   let bollOk: boolean;
   let crossOk: boolean;
   if (branch === 'near') {
-    bollOk = bollNarrowing(input.m30, 20, 2);
+    bollOk = bollNarrowing(input.m30, BOLL_N, BOLL_P);
     crossOk = crossUp(input.m30, 13, 25);
   } else {
-    bollOk = bollNarrowing(input.m30, 45, 2);
+    bollOk = bollNarrowing(input.m30, BOLL_N, BOLL_P);
     crossOk = crossUp(input.m60, 13, 25);
   }
   if (toggles.bollNarrow && !bollOk) {
-    failReasons.push(branch === 'near' ? '30 分 BOLL(20,2) 未缩口' : '30 分 BOLL(45,2) 未缩口');
+    failReasons.push('30 分 BOLL(45,2) 未缩口');
   }
   if (branch === 'near') {
     if (toggles.bollNarrow && !crossOk) failReasons.push('30 分 MA13/25 未金叉');

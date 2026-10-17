@@ -195,16 +195,13 @@ describe('MA13 上穿 MA25', () => {
 
 describe('买点评估（按距涨停日数分支）', () => {
   const dayUp = Array.from({ length: 25 }, (_, i) => 10 + i * 0.05); // 收盘 > MA10
-  /** 30 分：前 10 根震荡 ±0.5、中 14 根收敛 ±0.1、末 6 根缓抬 */
-  const m30Near = (() => {
-    const c: number[] = [];
-    for (let i = 0; i < 10; i++) c.push(i % 2 ? 9.5 : 10.5);
-    for (let i = 0; i < 14; i++) c.push(i % 2 ? 9.9 : 10.1);
-    for (let i = 0; i < 6; i++) c.push(10 + i * 0.05);
-    return mk(c);
-  })();
-  /** 30 分（长）：前 40 根震荡 ±0.5、中 10 根收敛、末 5 根缓抬（供 BOLL(45,2)） */
-  const m30Far = (() => {
+  /**
+   * 30 分：前 40 根震荡 ±0.5、中 10 根收敛 ±0.1、末 5 根缓抬。
+   * 满足 BOLL(45,2) 缩口（末 3 根带宽 0.16979>0.16752>0.16497 持续下降）
+   * 与 13/25 金叉（i=52，落在最近 5 根内）。
+   * 2026-10-17 用户修正后两分支 BOLL 同参 (45,2)，近/远分支复用同一 fixture。
+   */
+  const m30Narrow = (() => {
     const c: number[] = [];
     for (let i = 0; i < 40; i++) c.push(i % 2 ? 9.5 : 10.5);
     for (let i = 0; i < 10; i++) c.push(i % 2 ? 9.9 : 10.1);
@@ -215,8 +212,8 @@ describe('买点评估（按距涨停日数分支）', () => {
   const m60Flat = mk(Array.from({ length: 30 }, () => 10));
   const m30Flat = mk(Array.from({ length: 30 }, () => 10));
 
-  it('≤6 日分支：30 分 BOLL(20,2) 缩口 + 30 分 13/25 金叉 → 过', () => {
-    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Near, m60: m60Flat, daysSinceLimitUp: 4 });
+  it('≤6 日分支：30 分 BOLL(45,2) 缩口 + 30 分 13/25 金叉 → 过', () => {
+    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Narrow, m60: m60Flat, daysSinceLimitUp: 4 });
     expect(r.branch).toBe('near');
     expect(r.pass).toBe(true);
     expect(r.checks).toEqual({ closeAboveMa10: true, bollNarrow: true, maCross: true });
@@ -226,22 +223,22 @@ describe('买点评估（按距涨停日数分支）', () => {
     const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Flat, m60: m60Flat, daysSinceLimitUp: 6 });
     expect(r.branch).toBe('near');
     expect(r.pass).toBe(false);
-    expect(r.failReasons).toEqual(['30 分 BOLL(20,2) 未缩口', '30 分 MA13/25 未金叉']);
+    expect(r.failReasons).toEqual(['30 分 BOLL(45,2) 未缩口', '30 分 MA13/25 未金叉']);
   });
 
   it('>6 日分支：30 分 BOLL(45,2) 缩口 + 60 分 13/25 金叉 → 过', () => {
-    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Far, m60: m60Cross, daysSinceLimitUp: 8 });
+    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Narrow, m60: m60Cross, daysSinceLimitUp: 8 });
     expect(r.branch).toBe('far');
     expect(r.pass).toBe(true);
   });
 
   it('>6 日分支：60 分未金叉 → 不过；关该开关后放行', () => {
-    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Far, m60: m60Flat, daysSinceLimitUp: 9 });
+    const r = evalBuyPoint({ dayCandles: mk(dayUp), m30: m30Narrow, m60: m60Flat, daysSinceLimitUp: 9 });
     expect(r.branch).toBe('far');
     expect(r.failReasons).toEqual(['60 分 MA13/25 未金叉']);
     const r2 = evalBuyPoint({
       dayCandles: mk(dayUp),
-      m30: m30Far,
+      m30: m30Narrow,
       m60: m60Flat,
       daysSinceLimitUp: 9,
       toggles: { ...DEFAULT_TOGGLES, maCross60: false }
@@ -250,7 +247,7 @@ describe('买点评估（按距涨停日数分支）', () => {
   });
 
   it('收盘未站上 MA10 → 不过', () => {
-    const r = evalBuyPoint({ dayCandles: mk([...dayUp.slice(0, 24), 9.0]), m30: m30Near, m60: m60Cross, daysSinceLimitUp: 4 });
+    const r = evalBuyPoint({ dayCandles: mk([...dayUp.slice(0, 24), 9.0]), m30: m30Narrow, m60: m60Cross, daysSinceLimitUp: 4 });
     expect(r.pass).toBe(false);
     expect(r.failReasons).toContain('收盘未站上 MA10');
   });
