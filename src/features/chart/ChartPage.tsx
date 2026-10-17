@@ -4,6 +4,8 @@ import type { Candle, IntradayPoint, Quote } from '../../lib/types';
 import { fetchDaily, fetchIntraday, type KlinePeriod } from '../../lib/chartClient';
 import { ChartCanvas } from './ChartCanvas';
 import { changeText, pctText, quoteClass } from '../../lib/format';
+import { useQuotes } from '../quotes/useQuotes';
+import { bareSymbol } from '../../lib/symbol';
 
 interface Props {
   symbol: string;
@@ -14,6 +16,9 @@ export function ChartPage({ symbol, quote }: Props) {
   const [intraday, setIntraday] = useState<IntradayPoint[]>([]);
   const [candles, setCandles] = useState<Candle[]>([]);
   const [period, setPeriod] = useState<KlinePeriod>('day');
+  // 头部实时行情：App 不传 quote（历史设计），由本页自取；传入时以 prop 优先（测试注入/复用）
+  const { quotes: liveQuotes } = useQuotes([symbol]);
+  const q: Quote | undefined = quote ?? liveQuotes[bareSymbol(symbol)];
 
   // 分时与日K：symbol 变化时拉取（各抓各的错，互不影响）
   useEffect(() => {
@@ -47,14 +52,14 @@ export function ChartPage({ symbol, quote }: Props) {
 
   return (
     <section className="detail" aria-label="个股详情">
-      <header className={`detail-head ${quote ? quoteClass(quote) : ''}`}>
-        <div className="price">{quote ? quote.price.toFixed(2) : symbol}</div>
-        {quote && (
+      <header className={`detail-head ${q ? quoteClass(q) : ''}`}>
+        <div className="price">{q ? q.price.toFixed(2) : symbol}</div>
+        {q && (
           <div className="sub">
-            {pctText(quote.changePct)} {quote.change >= 0 ? '▲' : '▼'}（{changeText(quote.change)}）
+            {pctText(q.changePct)} {q.change >= 0 ? '▲' : '▼'}（{changeText(q.change)}）
           </div>
         )}
-        <div className="sym">{quote?.name ? `${quote.name} · ${symbol}` : symbol}</div>
+        <div className="sym">{q?.name ? `${q.name} · ${symbol}` : symbol}</div>
       </header>
 
       {/* 分时图：常显（上） */}
