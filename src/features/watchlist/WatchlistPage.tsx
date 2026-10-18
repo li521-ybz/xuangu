@@ -28,7 +28,7 @@ interface Props {
 const ALL = '全部';
 
 export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, children }: Props) {
-  const { stocks, loading, error, load, add, remove } = useWatchlist(repo);
+  const { stocks, loading, error, load, add, remove, setGroup } = useWatchlist(repo);
   const [filter, setFilter] = useState<string>(ALL);
   const [adding, setAdding] = useState(false);
   const [screener, setScreener] = useState(false);
@@ -51,6 +51,14 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
     [selected, symbols]
   );
   const { quotes: extraQuotes } = useQuotes(extraSelected);
+
+  // 行内转移菜单展开中的行 id（分组互转：观察 ↔ 持仓；同屏只开一个）
+  const [movingId, setMovingId] = useState<string | null>(null);
+  // 转移分组：写入仓库并更新列表（失败原因由 useWatchlist 写入页面错误横幅）
+  const handleMove = async (id: string, group: string) => {
+    setMovingId(null);
+    await setGroup(id, group).catch(() => {});
+  };
 
   const groups = useMemo(() => groupsOf(stocks), [stocks]);
   // 市场模式结果行行内添加：自选分组映射（bareSymbol → 组名），命中即显示「已xx」不重复加
@@ -169,13 +177,50 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                 key={s.id}
                 className={`stock-item${selected === s.symbol ? ' selected' : ''}`}
                 aria-current={selected === s.symbol ? 'true' : undefined}
-                onClick={() => onSelect?.(s.symbol)}
+                onClick={() => {
+                  setMovingId(null); // 点行收起未确认的转移菜单
+                  onSelect?.(s.symbol);
+                }}
                 data-testid={`row-${s.symbol}`}
               >
                 <span className="si-text">
                   <span className="si-name">{s.name || s.symbol}</span>
                   <span className="si-code">{s.symbol}</span>
                 </span>
+                {movingId === s.id ? (
+                  // 行内展开：除当前分组外的其他分组，即点即转（不弹层，同选股结果行内加自选）
+                  <span className="row-add-menu" data-testid={`move-menu-${s.symbol}`}>
+                    {groups
+                      .filter((g) => g !== s.group)
+                      .map((g) => (
+                        <button
+                          key={g}
+                          type="button"
+                          className="grp-btn"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            void handleMove(s.id, g);
+                          }}
+                        >
+                          {g}
+                        </button>
+                      ))}
+                  </span>
+                ) : (
+                  <button
+                    type="button"
+                    className="row-move"
+                    aria-label={`转移 ${s.name || s.symbol} 到其他分组`}
+                    title="转移分组"
+                    data-testid={`move-${s.symbol}`}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMovingId(s.id);
+                    }}
+                  >
+                    ⇄
+                  </button>
+                )}
                 <button
                   aria-label={`删除 ${s.name}`}
                   className="row-del"

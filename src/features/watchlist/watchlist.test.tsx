@@ -97,6 +97,40 @@ describe('WatchlistPage 交互', () => {
       expect(screen.queryByTestId('row-sh600000')).not.toBeInTheDocument()
     );
   });
+
+  it('行内转移分组：观察 ⇄ 持仓 双向互转（⇄ → 选目标组 → 按新分组过滤生效）', async () => {
+    const user = userEvent.setup();
+    render(<WatchlistPage repo={new InMemoryStockRepository()} />);
+    await user.click(screen.getByLabelText('添加自选'));
+    await user.type(screen.getByLabelText('股票代码'), 'sh600000');
+    await user.click(screen.getByRole('button', { name: '添加' }));
+    const row = await screen.findByTestId('row-sh600000');
+
+    // ① 观察 → 持仓：行内菜单只列出「当前分组之外」的组（不弹层）
+    await user.click(within(row).getByTestId('move-sh600000'));
+    const menu = await screen.findByTestId('move-menu-sh600000');
+    expect(within(menu).getByText('持仓')).toBeInTheDocument();
+    expect(within(menu).queryByText('观察')).not.toBeInTheDocument();
+    await user.click(within(menu).getByText('持仓'));
+
+    // 转移后按新分组过滤生效：持仓里有、观察里没有
+    await user.click(screen.getByRole('button', { name: '持仓' }));
+    expect(await screen.findByTestId('row-sh600000')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '观察' }));
+    await waitFor(() => expect(screen.queryByTestId('row-sh600000')).not.toBeInTheDocument());
+
+    // ② 持仓 → 观察：反向同样可用
+    await user.click(screen.getByRole('button', { name: '持仓' }));
+    const row2 = await screen.findByTestId('row-sh600000');
+    await user.click(within(row2).getByTestId('move-sh600000'));
+    const menu2 = await screen.findByTestId('move-menu-sh600000');
+    expect(within(menu2).getByText('观察')).toBeInTheDocument();
+    expect(within(menu2).queryByText('持仓')).not.toBeInTheDocument();
+    await user.click(within(menu2).getByText('观察'));
+
+    await user.click(screen.getByRole('button', { name: '观察' }));
+    expect(await screen.findByTestId('row-sh600000')).toBeInTheDocument();
+  });
 });
 
 // 模块④ 条件选股（2026-10-17）：左栏入口 → 中栏条件面板 / 右栏结果列表。

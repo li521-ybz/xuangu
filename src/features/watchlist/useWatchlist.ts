@@ -47,10 +47,17 @@ export function useWatchlist(repo: StockRepository) {
     [repo]
   );
 
+  // 分组转移（观察 ↔ 持仓 / 自定义组）：失败原因进页面横幅，并抛给调用方决定是否静默
   const setGroup = useCallback(
     async (id: string, group: string) => {
-      await repo.setGroup(id, group);
-      setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, group } : s)));
+      setError(null);
+      try {
+        await repo.setGroup(id, group);
+        setStocks((prev) => prev.map((s) => (s.id === id ? { ...s, group } : s)));
+      } catch (e) {
+        setError((e as Error).message);
+        throw e;
+      }
     },
     [repo]
   );
