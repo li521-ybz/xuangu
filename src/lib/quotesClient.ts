@@ -10,8 +10,8 @@ export interface QuotesResponse {
   degraded?: boolean; // 部分股票因上游失败而降级（解析为空）
 }
 
-/** 上游返回 GBK，浏览器需按 GBK 解码（ASCII 安全；失败降级 UTF-8） */
-async function readGbk(res: Response): Promise<string> {
+/** 上游返回 GBK，浏览器需按 GBK 解码（ASCII 安全；失败降级 UTF-8）；东财名单接口同样需要，故导出复用 */
+export async function readGbk(res: Response): Promise<string> {
   const buf = await res.arrayBuffer();
   try {
     return new TextDecoder('gbk').decode(buf);

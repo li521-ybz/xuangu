@@ -63,4 +63,17 @@ describe('fetchDaily', () => {
     const f = async () => ({ ok: false, status: 500, json: async () => ({}), text: async () => '' }) as any;
     await expect(fetchDaily('sh600000', 'day', f)).rejects.toThrow();
   });
+
+  it('扫描专用主机 + 条数参数（市场模式，2026-10-18）', async () => {
+    const seen: string[] = [];
+    await fetchDaily('601929', 'day', fakeFetch(KLINE_JSON, seen), { scanHost: true, bars: 60 });
+    expect(seen[0]).toContain('ifzq.gtimg.cn');
+    expect(seen[0]).toContain(',day,,,60,qfq');
+    expect(seen[0]).not.toContain('web.ifzq');
+  });
+
+  it('非 JSON 响应（WAF 挑战页）抛错，避免误判无符合股票', async () => {
+    const f = async () => ({ ok: true, status: 200, text: async () => '<html>challenge</html>' }) as any;
+    await expect(fetchDaily('sh600000', 'day', f)).rejects.toThrow('非 JSON');
+  });
 });

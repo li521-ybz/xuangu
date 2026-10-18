@@ -8,11 +8,21 @@ import { normalizeSymbol } from './symbol';
 /** K 线周期：day 走 fqkline；m30/m60 走 mkline（分钟周期，2026-10-17 实测） */
 export type KlinePeriod = 'day' | 'm30' | 'm60';
 
-/** 腾讯日K（fqkline）：param=代码,day,,,条数,qfq（前复权） */
+/** 腾讯日K（fqkline）：param=代码,day,,,条数,qfq（前复权）；图表固定 320 根 */
 const TX_FQKLINE = (symbol: string) =>
   `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
     symbol
   )},day,,,320,qfq`;
+
+/**
+ * 腾讯日K（fqkline，扫描专用主机）：ifzq.gtimg.cn（2026-10-18 实测 600 请求/并发 8 零 WAF 拦截，
+ * 自带 Access-Control-Allow-Origin: *；web.ifzq 域名 burst 后会被腾讯 WAF 封）。
+ * 市场扫描走此主机 + 60 根，与图表源（web.ifzq/320 根）域名隔离：扫描触发 WAF 不连累看图。
+ */
+const TX_FQKLINE_SCAN = (symbol: string, bars: number) =>
+  `https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
+    symbol
+  )},day,,,${bars},qfq`;
 
 /**
  * 腾讯分钟K（mkline）：param=代码,周期,,,条数。
@@ -36,16 +46,41 @@ export async function fetchIntraday(
   // 用户可能只输 6 位代码，上游要求带交易所前缀——请求前统一补全
   const res = await fetchImpl(TX_MINUTE(normalizeSymbol(symbol)));
   if (!res.ok) throw new Error(`分时接口返回 ${res.status}`);
-  return parseTencentMinute(await res.text());
+  return parseTencentMinute(await readJson(res));
+}
+
+/** fetchDaily 可选参数：bars=日K条数（默认 320）；scanHost=true 走扫描专用主机（市场模式，见 TX_FQKLINE_SCAN） */
+export interface FetchDailyOptions {
+  bars?: number;
+  scanHost?: boolean;
 }
 
 export async function fetchDaily(
   symbol: string,
   period: KlinePeriod = 'day',
-  fetchImpl: typeof fetch = safeFetch
+  fetchImpl: typeof fetch = safeFetch,
+  opts: FetchDailyOptions = {}
 ): Promise<Candle[]> {
-  const url = period === 'day' ? TX_FQKLINE(normalizeSymbol(symbol)) : TX_MKLINE(normalizeSymbol(symbol), period);
+  const norm = normalizeSymbol(symbol);
+  const url =
+    period === 'day'
+      ? opts.scanHost
+        ? TX_FQKLINE_SCAN(norm, opts.bars ?? 60)
+        : TX_FQKLINE(norm)
+      : TX_MKLINE(norm, period);
   const res = await fetchImpl(url);
   if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
-  return parseTencentKline(await res.text(), period);
+  return parseTencentKline(await readJson(res), period);
+}
+
+/**
+ * 读取响应体并确认是 JSON：腾讯 WAF 拦截时返回 HTML 挑战页（跳转 waf.tencent.com），
+ * 若不识别会被解析成空数组、进而误判「无符合股票」。这里显式抛错，让上层记为数据缺失。
+ */
+async function readJson(res: Response): Promise<string> {
+  const text = await res.text();
+  if (!text.trimStart().startsWith('{')) {
+    throw new Error('接口返回非 JSON（可能被拦截），稍后重试');
+  }
+  return text;
 }

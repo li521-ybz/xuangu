@@ -48,3 +48,73 @@ describe('ScreenerPanel 条件面板', () => {
     expect(screen.getByText('暂无自选股，先添加')).toBeInTheDocument();
   });
 });
+
+describe('ScreenerPanel 市场模式（2026-10-18）', () => {
+  const base = {
+    toggles: DEFAULT_TOGGLES,
+    onToggle: () => {},
+    onRun: () => {},
+    running: false,
+    progress: '',
+    total: 4912
+  };
+
+  it('范围分段：切换自选股/沪深A股', async () => {
+    const user = userEvent.setup();
+    const onScopeChange = vi.fn();
+    render(<ScreenerPanel {...base} onScopeChange={onScopeChange} />);
+    await user.click(screen.getByRole('button', { name: '沪深A股' }));
+    expect(onScopeChange).toHaveBeenCalledWith('market');
+    await user.click(screen.getByRole('button', { name: '自选股' }));
+    expect(onScopeChange).toHaveBeenCalledWith('watchlist');
+  });
+
+  it('名单加载中：禁用开始筛选', async () => {
+    render(<ScreenerPanel {...base} scope="market" rosterLoading total={0} />);
+    expect(screen.getByRole('button', { name: '开始筛选' })).toBeDisabled();
+    expect(screen.getByTestId('roster-line')).toHaveTextContent('名单加载中');
+  });
+
+  it('名单就绪：状态行含只数/来源，可刷新', async () => {
+    const user = userEvent.setup();
+    const onRosterRefresh = vi.fn();
+    render(
+      <ScreenerPanel
+        {...base}
+        scope="market"
+        rosterLine="沪深A股 4,912 只 · 10-19 更新（东财）"
+        onRosterRefresh={onRosterRefresh}
+      />
+    );
+    expect(screen.getByTestId('roster-line')).toHaveTextContent('4,912 只');
+    expect(screen.getByTestId('roster-line')).toHaveTextContent('东财');
+    await user.click(screen.getByRole('button', { name: '刷新名单' }));
+    expect(onRosterRefresh).toHaveBeenCalled();
+  });
+
+  it('名单失败：显示错误与重试', async () => {
+    const user = userEvent.setup();
+    const onRosterRefresh = vi.fn();
+    render(
+      <ScreenerPanel
+        {...base}
+        scope="market"
+        total={0}
+        rosterError="名单获取失败：网络不通"
+        onRosterRefresh={onRosterRefresh}
+      />
+    );
+    expect(screen.getByText('名单获取失败：网络不通')).toBeInTheDocument();
+    await user.click(screen.getByRole('button', { name: '重试' }));
+    expect(onRosterRefresh).toHaveBeenCalled();
+  });
+
+  it('运行中：显示停止按钮（开始按钮保持禁用）', async () => {
+    const user = userEvent.setup();
+    const onCancel = vi.fn();
+    render(<ScreenerPanel {...base} running progress="拉取日K 120/4912 · 约剩 1 分钟" onCancel={onCancel} />);
+    await user.click(screen.getByRole('button', { name: '停止' }));
+    expect(onCancel).toHaveBeenCalled();
+    expect(screen.getByRole('button', { name: '筛选中…' })).toBeDisabled();
+  });
+});

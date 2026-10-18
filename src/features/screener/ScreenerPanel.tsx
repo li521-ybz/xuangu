@@ -1,6 +1,10 @@
 // 模块④ 条件面板（中栏）：主条件/买点条件开关 + 口径说明 + 开始筛选
 // 参数口径固定（用户 2026-10-17 拍板「条件是这些固定的」），不在 UI 暴露调参。
+// 2026-10-18 市场模式：顶部「选股范围」分段（自选股/沪深A股）+ 名单状态行 + 运行中「停止」。
+// 新增 props 全部可选：不传即自选股口径，旧调用行为不变。
 import type { ConditionToggles } from './conditions';
+
+export type ScreenerScope = 'watchlist' | 'market';
 
 interface Props {
   toggles: ConditionToggles;
@@ -9,6 +13,15 @@ interface Props {
   running: boolean;
   progress: string;
   total: number;
+  scope?: ScreenerScope;
+  onScopeChange?: (scope: ScreenerScope) => void;
+  rosterLine?: string | null; // 市场模式名单状态行（只数/日期/来源）
+  rosterLoading?: boolean; // 名单拉取中
+  rosterError?: string | null; // 名单拉取失败（无缓存可用）
+  rosterNote?: string | null; // 名单非致命提示（如沿用旧缓存）
+  onRosterRefresh?: () => void; // 刷新/重试名单
+  onCancel?: () => void; // 停止本轮扫描
+  emptyHint?: string; // total===0 时的提示文案
 }
 
 interface Item {
@@ -28,6 +41,11 @@ const BUY_ITEMS: Item[] = [
   { key: 'closeAboveMa10', label: '收盘价 > 10 日线' },
   { key: 'bollNarrow', label: '30 分 BOLL 缩口 + 13/25 买点', hint: '两分支均 30 分 BOLL(45,2) + 30 分 13/25' },
   { key: 'maCross60', label: '60 分 13/25 买点', hint: '仅 >6 日分支生效' }
+];
+
+const SCOPES: Array<{ key: ScreenerScope; label: string }> = [
+  { key: 'watchlist', label: '自选股' },
+  { key: 'market', label: '沪深A股' }
 ];
 
 function ToggleRow({ item, checked, onChange }: { item: Item; checked: boolean; onChange: () => void }) {
@@ -51,9 +69,68 @@ function ToggleRow({ item, checked, onChange }: { item: Item; checked: boolean; 
   );
 }
 
-export function ScreenerPanel({ toggles, onToggle, onRun, running, progress, total }: Props) {
+export function ScreenerPanel({
+  toggles,
+  onToggle,
+  onRun,
+  running,
+  progress,
+  total,
+  scope = 'watchlist',
+  onScopeChange,
+  rosterLine,
+  rosterLoading,
+  rosterError,
+  rosterNote,
+  onRosterRefresh,
+  onCancel,
+  emptyHint
+}: Props) {
   return (
     <div className="screener-panel" data-testid="screener-panel">
+      {onScopeChange && (
+        <div className="scope-switch" role="group" aria-label="选股范围">
+          {SCOPES.map((s) => (
+            <button
+              key={s.key}
+              type="button"
+              className={`seg${scope === s.key ? ' active' : ''}`}
+              aria-pressed={scope === s.key}
+              onClick={() => onScopeChange(s.key)}
+            >
+              {s.label}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {scope === 'market' && (
+        <div className="roster-line" data-testid="roster-line">
+          {rosterLoading && <span className="cond-hint">名单加载中…</span>}
+          {!rosterLoading && rosterError && (
+            <span className="roster-error">
+              {rosterError}
+              {onRosterRefresh && (
+                <button type="button" className="link-btn" onClick={onRosterRefresh}>
+                  重试
+                </button>
+              )}
+            </span>
+          )}
+          {!rosterLoading && !rosterError && rosterLine && (
+            <span className="roster-info">
+              {rosterLine}
+              {onRosterRefresh && (
+                <button type="button" className="link-btn" onClick={onRosterRefresh} aria-label="刷新名单">
+                  ↻
+                </button>
+              )}
+            </span>
+          )}
+          {rosterNote && <span className="cond-hint">{rosterNote}</span>}
+        </div>
+      )}
+
       <div className="cond-group">
         <h4>主条件（日K）</h4>
         {MAIN_ITEMS.map((it) => (
@@ -67,15 +144,26 @@ export function ScreenerPanel({ toggles, onToggle, onRun, running, progress, tot
         ))}
         <p className="cond-hint">两分支均要求 30 分 BOLL(45,2) 缩口 + 30 分 13/25 金叉；距涨停 &gt;6 日的分支额外要求 60 分 13/25 金叉。</p>
       </div>
-      <button className="run-btn" onClick={onRun} disabled={running || total === 0}>
-        {running ? '筛选中…' : '开始筛选'}
-      </button>
+      <div className="run-row">
+        <button
+          className="run-btn"
+          onClick={onRun}
+          disabled={running || total === 0 || !!rosterLoading}
+        >
+          {running ? '筛选中…' : '开始筛选'}
+        </button>
+        {running && onCancel && (
+          <button type="button" className="stop-btn" onClick={onCancel}>
+            停止
+          </button>
+        )}
+      </div>
       {progress && (
         <p className="cond-progress" data-testid="screener-progress">
           {progress}
         </p>
       )}
-      {total === 0 && <p className="empty">暂无自选股，先添加</p>}
+      {total === 0 && !rosterLoading && <p className="empty">{emptyHint ?? '暂无自选股，先添加'}</p>}
     </div>
   );
 }

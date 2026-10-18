@@ -497,6 +497,80 @@ button {
   font-variant-numeric: tabular-nums;
 }
 
+/* 选股范围分段（自选股 / 沪深A股，2026-10-18） */
+.scope-switch {
+  display: flex;
+  background: var(--fill);
+  border-radius: 10px;
+  padding: 2px;
+  gap: 2px;
+}
+.scope-switch .seg {
+  flex: 1;
+  border: none;
+  border-radius: 8px;
+  padding: 7px 0;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--fg);
+  background: transparent;
+  transition: background 0.15s var(--ease);
+}
+.scope-switch .seg.active {
+  background: var(--card);
+  font-weight: 600;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12);
+}
+
+/* 市场模式名单状态行 */
+.roster-line {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  font-size: 12px;
+}
+.roster-info,
+.roster-error {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  color: var(--fg);
+}
+.roster-error {
+  color: var(--error);
+}
+.link-btn {
+  border: none;
+  background: none;
+  padding: 0 2px;
+  font-size: 12px;
+  color: var(--accent);
+}
+
+/* 运行行：开始筛选 + 停止 */
+.run-row {
+  display: flex;
+  gap: 8px;
+}
+.run-row .run-btn {
+  flex: 1;
+}
+.stop-btn {
+  border: none;
+  border-radius: 12px;
+  padding: 11px 16px;
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--error);
+  background: rgba(215, 0, 21, 0.1);
+}
+
+/* 结果列表：数据缺失聚合行（市场模式，不可点） */
+.stock-item-agg {
+  cursor: default;
+  color: var(--muted);
+}
+
 /* 右栏结果列表 */
 .result-summary {
   margin: 12px 4px 8px;

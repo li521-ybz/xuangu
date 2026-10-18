@@ -3,15 +3,18 @@
 // 窄屏：纵向堆叠（分组横排 chips → 列表 → 主区）
 // 列表行显示名称+代码（用户 2026-10-17 拍板）；信息条只显示当前选中股票的 代码/现价/涨跌幅
 // 模块④ 条件选股（2026-10-17）：左栏底部「条件选股」入口，进入后中栏变条件面板、右栏变结果列表。
+// 2026-10-18 选股范围扩大到沪深A股：中栏顶部「自选股/沪深A股」分段，市场模式扫东财+腾讯枚举名单
+// （不含北交所，用户 2026-10-18 拍板），手动开扫、进度带预计剩余、可停止。
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import type { StockRepository } from '../../lib/repository';
 import { bareSymbol } from '../../lib/symbol';
 import { groupsOf, useWatchlist } from './useWatchlist';
 import { AddStockModal } from './AddStockModal';
 import { useQuotes } from '../quotes/useQuotes';
-import { ScreenerPanel } from '../screener/ScreenerPanel';
+import { ScreenerPanel, type ScreenerScope } from '../screener/ScreenerPanel';
 import { ScreenerResults } from '../screener/ScreenerResults';
-import { useScreener } from '../screener/useScreener';
+import { useScreener, type ScreenerOptions } from '../screener/useScreener';
+import { useMarketRoster } from '../screener/useMarketRoster';
 import { pctText, quoteClass } from '../../lib/format';
 
 interface Props {
@@ -29,11 +32,25 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   const [filter, setFilter] = useState<string>(ALL);
   const [adding, setAdding] = useState(false);
   const [screener, setScreener] = useState(false);
-  const screenerCtl = useScreener(stocks);
+  const [scope, setScope] = useState<ScreenerScope>('watchlist');
+  // 市场模式名单：仅切到「沪深A股」才拉取（active），缓存按天失效
+  const roster = useMarketRoster(screener && scope === 'market');
+  const screenerStocks = scope === 'market' ? roster.stocks : stocks;
+  const screenerOpts = useMemo<ScreenerOptions>(
+    () => (scope === 'market' ? { bars: 60, concurrency: 8, scanHost: true } : {}),
+    [scope]
+  );
+  const screenerCtl = useScreener(screenerStocks, screenerOpts);
   const autoRan = useRef(false);
 
   const symbols = useMemo(() => stocks.map((s) => s.symbol), [stocks]);
   const { quotes, degraded, refresh } = useQuotes(symbols);
+  // 选中股票不在自选股里时（如全市场扫描结果行），单独补查一次报价，信息条不显示「—」
+  const extraSelected = useMemo(
+    () => (selected && !symbols.includes(selected) ? [selected] : []),
+    [selected, symbols]
+  );
+  const { quotes: extraQuotes } = useQuotes(extraSelected);
 
   const groups = useMemo(() => groupsOf(stocks), [stocks]);
   const visible = useMemo(
@@ -42,13 +59,28 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   );
 
   // 选中股票的实时行情（信息条用；与列表同源，不重复请求）
-  const sq = selected ? quotes[bareSymbol(selected)] : undefined;
+  const sq = selected
+    ? quotes[bareSymbol(selected)] ?? extraQuotes[bareSymbol(selected)]
+    : undefined;
   const scls = sq ? quoteClass(sq) : 'flat';
 
   const onRefresh = () => {
     void load();
     void refresh();
   };
+
+  // 切换选股范围：清空上一轮结果，避免两种范围的行混在一起
+  const switchScope = (next: ScreenerScope) => {
+    setScope(next);
+    screenerCtl.reset();
+  };
+
+  const rosterLine =
+    roster.stocks.length > 0
+      ? `沪深A股 ${roster.stocks.length.toLocaleString('zh-CN')} 只 · ${(roster.date ?? '').slice(5)} 更新（${
+          roster.source === 'eastmoney' ? '东财' : '腾讯枚举'
+        }）`
+      : null;
 
   // 默认选中：加载完成后若无有效选中（首次进入/选中项被删），选中当前筛选第一个，
   // 图表区与信息条立即可见（三栏终端体验：进来就能看图，无需先点行）。
@@ -59,9 +91,10 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
     if (!exists && visible[0]) onSelect?.(visible[0].symbol);
   }, [loading, screener, selected, stocks, visible, onSelect]);
 
-  // 进入选股模式且自选非空时自动筛一次（每次进入只跑一轮；改条件/加股票后手动点「开始筛选」）
+  // 进入选股模式且自选非空时自动筛一次（每次进入只跑一轮；改条件/加股票后手动点「开始筛选」）。
+  // 市场模式（沪深A股）不自动跑：5000 只一轮几十 MB 流量，必须用户手动发起。
   useEffect(() => {
-    if (!screener) {
+    if (!screener || scope !== 'watchlist') {
       autoRan.current = false;
       return;
     }
@@ -69,7 +102,7 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
     if (stocks.length === 0) return;
     autoRan.current = true;
     void screenerCtl.run();
-  }, [screener, screenerCtl, stocks.length]);
+  }, [screener, scope, screenerCtl, stocks.length]);
 
   return (
     <section className="watchlist" aria-label="自选股看板">
@@ -109,7 +142,16 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
             onRun={() => void screenerCtl.run()}
             running={screenerCtl.running}
             progress={screenerCtl.progress}
-            total={stocks.length}
+            total={screenerStocks.length}
+            scope={scope}
+            onScopeChange={switchScope}
+            rosterLine={rosterLine}
+            rosterLoading={roster.loading}
+            rosterError={roster.error}
+            rosterNote={roster.note}
+            onRosterRefresh={roster.refresh}
+            onCancel={screenerCtl.cancel}
+            emptyHint={scope === 'market' ? '暂无可用名单，请刷新重试' : undefined}
           />
         ) : !loading && visible.length === 0 ? (
           <p className="empty">暂无自选，点 ＋ 添加</p>
@@ -177,6 +219,12 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
               onSelect?.(symbol);
               setScreener(false);
             }}
+            mode={scope}
+            scanned={screenerCtl.scanned}
+            running={screenerCtl.running}
+            emptyHint={
+              scope === 'market' ? '点「开始筛选」扫描沪深A股（约 1–3 分钟，可随时停止）' : undefined
+            }
           />
         ) : (
           <>
