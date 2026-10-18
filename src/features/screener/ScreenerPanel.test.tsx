@@ -22,8 +22,8 @@ describe('ScreenerPanel 条件面板', () => {
     render(
       <ScreenerPanel toggles={DEFAULT_TOGGLES} onToggle={onToggle} onRun={() => {}} running={false} progress="" total={3} />
     );
-    await user.click(screen.getByRole('switch', { name: '不破 20 日线' }));
-    expect(onToggle).toHaveBeenCalledWith('notBreakMa20');
+    await user.click(screen.getByRole('switch', { name: '收盘价 > 20 日线' }));
+    expect(onToggle).toHaveBeenCalledWith('closeAboveMa20');
   });
 
   it('运行中：按钮禁用并显示进度；无自选时禁用', async () => {

@@ -94,7 +94,7 @@ describe('涨停日查找（窗口内最近一个）', () => {
 });
 
 describe('主条件评估（日K）', () => {
-  it('全过：涨停后 4 日、缩量 50%、不破最低价、不破 MA20', () => {
+  it('全过：涨停后 4 日、缩量 50%、不破最低价、收盘 > MA20', () => {
     const r = evalMainConditions(mainPassFixture(), { code: 'sh600000', name: '测试' });
     expect(r.pass).toBe(true);
     expect(r.limitUpIndex).toBe(20);
@@ -154,14 +154,29 @@ describe('主条件评估（日K）', () => {
     expect(r.failReasons).toEqual(['跌破首板最低价']);
   });
 
-  it('跌破 MA20 → 不过', () => {
+  it('收盘未站上 MA20 → 不过', () => {
     const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
     const closes = [...pre, 11.21, 11.25, 11.22, 11.3, 10.0]; // 末根回落至 MA20 下方
     const lows = [...pre.map((c) => c * 0.99), 9.2, 11.0, 11.1, 11.15, 9.98];
     const vols = [...pre.map(() => 1000), 10000, 8000, 5000, 7000, 6000];
     const r = evalMainConditions(mk(closes, lows, vols), { code: '600000', name: '测试' });
     expect(r.pass).toBe(false);
-    expect(r.failReasons).toEqual(['跌破 MA20']);
+    expect(r.failReasons).toEqual(['收盘未站上 MA20']);
+  });
+
+  it('窗口中段曾跌破 MA20、最新一天收回 → 过（新口径只查最新一根；原每日检查口径会挂）', () => {
+    const pre = Array.from({ length: 20 }, (_, i) => 10 + i * 0.01);
+    // T=20 涨停 11.21；T+2 收 10.0（< 当日 MA20≈10.22）但最新 T+4 收 11.35（> 当日 MA20≈10.35）
+    const closes = [...pre, 11.21, 11.25, 10.0, 11.3, 11.35];
+    const lows = [...pre.map((c) => c * 0.99), 11, 11.05, 9.98, 11.15, 11.2];
+    const vols = [...pre.map(() => 1000), 10000, 8000, 5000, 7000, 6000]; // 最低 5000 = 基准 50%
+    const r = evalMainConditions(mk(closes, lows, vols), {
+      code: '600000',
+      name: '测试',
+      toggles: { ...DEFAULT_TOGGLES, notBreakLimitLow: false } // 隔离 MA20：T+2 低点 9.98 会破首板低点，与本条无关故关掉
+    });
+    expect(r.pass).toBe(true);
+    expect(r.failReasons).toEqual([]);
   });
 
   it('开关可单独关闭：关缩量后未缩量也过', () => {

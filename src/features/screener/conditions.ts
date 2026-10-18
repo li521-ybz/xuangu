@@ -4,7 +4,7 @@
 //     1. 涨停后 3–10 交易日内（取窗口内最近一个涨停日 T 作锚点）
 //     2. 缩量：T+1 至最新一日内，有任一交易日成交量 ≤ max(涨停日量, 次日量) × 55%
 //     3. 不破首板最低价：T+1 至最新一日内最低价均 ≥ 涨停连续段首板日最低价（连板取第一个涨停日；2026-10-17 21:36 由「不破涨停最低点」修改）
-//     4. 不破 20 日线：T+1 至最新一日内每日收盘价均 > 当日 MA20
+//     4. 收盘价 > 20 日线：最新一日收盘 > 当日 MA20（2026-10-18 由「不破 20 日线」修改，原为 T+1~最新每日检查）
 //   买点条件（按距涨停日数自动分支，与主条件 AND；口径：用户 2026-10-17 21:09 澄清）：
 //     5. 最新收盘 > MA10（日K）
 //     6. 30 分 BOLL(45,2) 带宽近 3 根持续下降（缩口）——两分支同参数
@@ -35,7 +35,7 @@ export interface ConditionToggles {
   limitUpWindow: boolean; // 涨停后 3–10 日内
   shrink: boolean; // 缩量至 55% 及以下
   notBreakLimitLow: boolean; // 不破首板最低价（连板取第一个涨停日）
-  notBreakMa20: boolean; // 不破 20 日线
+  closeAboveMa20: boolean; // 收盘价 > 20 日线（最新一根）
   closeAboveMa10: boolean; // 收盘价 > 10 日线
   bollNarrow: boolean; // 30 分 BOLL 缩口 + 30 分 13/25 买点（两分支均生效）
   maCross60: boolean; // 60 分 13/25 买点（>6 日分支）
@@ -45,7 +45,7 @@ export const DEFAULT_TOGGLES: ConditionToggles = {
   limitUpWindow: true,
   shrink: true,
   notBreakLimitLow: true,
-  notBreakMa20: true,
+  closeAboveMa20: true,
   closeAboveMa10: true,
   bollNarrow: true,
   maCross60: true
@@ -179,23 +179,9 @@ export function evalMainConditions(dayCandles: Candle[], opts: MainOptions = {})
     }
   }
 
-  // 不破 20 日线：T+1 ~ 最新 每日收盘 > 当日 MA20
-  if (toggles.notBreakMa20) {
-    const ma20 = movingAverage(
-      c.map((x) => x.close),
-      20
-    );
-    for (let i = t + 1; i < c.length; i++) {
-      const m = ma20[i];
-      if (m === null) {
-        failReasons.push('MA20 数据不足');
-        break;
-      }
-      if (!(c[i].close > m)) {
-        failReasons.push('跌破 MA20');
-        break;
-      }
-    }
+  // 收盘价 > 20 日线：最新一日收盘 > 当日 MA20（2026-10-18 由「不破 20 日线」修改，原检查 T+1~最新每日）
+  if (toggles.closeAboveMa20 && !closeAboveMa20(c)) {
+    failReasons.push('收盘未站上 MA20');
   }
 
   return { pass: failReasons.length === 0, limitUpIndex: t, daysSinceLimitUp: daysSince, shrinkActual, failReasons };
@@ -225,6 +211,17 @@ export function closeAboveMa10(dayCandles: Candle[]): boolean {
     10
   );
   const m = ma10[ma10.length - 1];
+  return m !== null && dayCandles[dayCandles.length - 1].close > m;
+}
+
+/** 最新收盘 > MA20（日K） */
+export function closeAboveMa20(dayCandles: Candle[]): boolean {
+  if (dayCandles.length < 20) return false;
+  const ma20 = movingAverage(
+    dayCandles.map((c) => c.close),
+    20
+  );
+  const m = ma20[ma20.length - 1];
   return m !== null && dayCandles[dayCandles.length - 1].close > m;
 }
 
