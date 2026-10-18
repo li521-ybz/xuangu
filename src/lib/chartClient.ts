@@ -8,21 +8,45 @@ import { normalizeSymbol } from './symbol';
 /** K 线周期：day 走 fqkline；m30/m60 走 mkline（分钟周期，2026-10-17 实测） */
 export type KlinePeriod = 'day' | 'm30' | 'm60';
 
-/** 腾讯日K（fqkline）：param=代码,day,,,条数,qfq（前复权）；图表固定 320 根 */
-const TX_FQKLINE = (symbol: string) =>
-  `https://web.ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
-    symbol
-  )},day,,,320,qfq`;
-
 /**
- * 腾讯日K（fqkline，扫描专用主机）：ifzq.gtimg.cn（2026-10-18 实测 600 请求/并发 8 零 WAF 拦截，
- * 自带 Access-Control-Allow-Origin: *；web.ifzq 域名 burst 后会被腾讯 WAF 封）。
- * 市场扫描走此主机 + 60 根，与图表源（web.ifzq/320 根）域名隔离：扫描触发 WAF 不连累看图。
+ * 日K fqkline 双主机 + 故障转移（2026-10-18 晚修「数据缺失」故障）：
+ * - web.ifzq：图表源（320 根），当晚实测 200 + Access-Control-Allow-Origin: *
+ * - ifzq：扫描源（60 根），其 fqkline 路径当晚被腾讯 WAF 拦截（501 JS 挑战页、
+ *   无 CORS 头；疑因 1b0f39b 全市场扫描 657 次突发触发路径级频控——同主机
+ *   mkline 路径当晚仍放行，说明封的是路径不是域名）
+ * 策略：保留域名隔离初衷（扫描默认仍走 ifzq，burst 不直接打图表源）；主主机失败
+ * （网络错误 / 非 200 / WAF 非 JSON）自动落备用主机；会话内记住故障主机
+ * （TTL 5 分钟），避免 5254 只票每只都先撞一次 WAF 再切换。
  */
-const TX_FQKLINE_SCAN = (symbol: string, bars: number) =>
-  `https://ifzq.gtimg.cn/appstock/app/fqkline/get?param=${encodeURIComponent(
+type FqklineHost = 'web.ifzq.gtimg.cn' | 'ifzq.gtimg.cn';
+
+const fqklineUrl = (host: FqklineHost, symbol: string, bars: number) =>
+  `https://${host}/appstock/app/fqkline/get?param=${encodeURIComponent(
     symbol
   )},day,,,${bars},qfq`;
+
+/** 会话内已知故障的 fqkline 主机 → 故障时间戳；TTL 内降级走备用主机，过期重试（WAF 封禁非永久） */
+const sickHosts = new Map<FqklineHost, number>();
+const SICK_TTL_MS = 5 * 60 * 1000;
+
+function hostSick(host: FqklineHost): boolean {
+  const at = sickHosts.get(host);
+  return at !== undefined && Date.now() - at < SICK_TTL_MS;
+}
+
+/** 日K主机链：健康主机在前、故障主机兜底（全故障时按原序再试，TTL 已过的自然复活） */
+function fqklineChain(scanHost: boolean): FqklineHost[] {
+  const primary: FqklineHost = scanHost ? 'ifzq.gtimg.cn' : 'web.ifzq.gtimg.cn';
+  const backup: FqklineHost = scanHost ? 'web.ifzq.gtimg.cn' : 'ifzq.gtimg.cn';
+  const healthy = [primary, backup].filter((h) => !hostSick(h));
+  const sick = [primary, backup].filter(hostSick);
+  return healthy.length > 0 ? [...healthy, ...sick] : [primary, backup];
+}
+
+/** 测试专用：清空主机故障记忆（模块级会话状态，跨用例需重置） */
+export function resetFqklineHostHealth(): void {
+  sickHosts.clear();
+}
 
 /**
  * 腾讯分钟K（mkline）：param=代码,周期,,,条数。
@@ -49,7 +73,7 @@ export async function fetchIntraday(
   return parseTencentMinute(await readJson(res));
 }
 
-/** fetchDaily 可选参数：bars=日K条数（默认 320）；scanHost=true 走扫描专用主机（市场模式，见 TX_FQKLINE_SCAN） */
+/** fetchDaily 可选参数：bars=日K条数（扫描模式默认 60，图表模式固定 320）；scanHost=true 走扫描专用主机（市场模式） */
 export interface FetchDailyOptions {
   bars?: number;
   scanHost?: boolean;
@@ -62,15 +86,25 @@ export async function fetchDaily(
   opts: FetchDailyOptions = {}
 ): Promise<Candle[]> {
   const norm = normalizeSymbol(symbol);
-  const url =
-    period === 'day'
-      ? opts.scanHost
-        ? TX_FQKLINE_SCAN(norm, opts.bars ?? 60)
-        : TX_FQKLINE(norm)
-      : TX_MKLINE(norm, period);
-  const res = await fetchImpl(url);
-  if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
-  return parseTencentKline(await readJson(res), period);
+  if (period !== 'day') {
+    // 分钟K维持 mkline@ifzq（web.ifzq 对该路径 301；2026-10-17 实测，当晚仍 200 + CORS）
+    const res = await fetchImpl(TX_MKLINE(norm, period));
+    if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
+    return parseTencentKline(await readJson(res), period);
+  }
+  const bars = opts.scanHost ? opts.bars ?? 60 : 320;
+  let lastErr: unknown;
+  for (const host of fqklineChain(!!opts.scanHost)) {
+    try {
+      const res = await fetchImpl(fqklineUrl(host, norm, bars));
+      if (!res.ok) throw new Error(`K线接口返回 ${res.status}`);
+      return parseTencentKline(await readJson(res), period);
+    } catch (e) {
+      sickHosts.set(host, Date.now()); // 本主机本轮不可用，同会话后续请求直接走备用
+      lastErr = e;
+    }
+  }
+  throw lastErr;
 }
 
 /**
