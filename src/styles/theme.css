@@ -299,7 +299,7 @@ button {
   cursor: pointer;
   transition: color 0.15s, background 0.15s;
 }
-/* 自选行「⇄」：观察 ↔ 持仓 互相转移（2026-10-18）；与行删 ✕ / 行内加 ＋ 同款圆形轻按钮 */
+/* 自选行「⇄」：观察 ↔ 持仓 一键互转（2026-10-18）；与行删 ✕ / 行内加 ＋ 同款圆形轻按钮 */
 .row-move {
   border: none;
   background: transparent;
@@ -314,6 +314,23 @@ button {
 }
 .row-move:hover {
   background: rgba(0, 122, 255, 0.1);
+}
+/* 转移成功 toast：fixed 居中浮层，不占布局、不挡点击（pointer-events:none） */
+.move-toast {
+  position: fixed;
+  left: 50%;
+  bottom: 24px;
+  transform: translateX(-50%);
+  background: rgba(0, 0, 0, 0.78);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 8px 16px;
+  border-radius: 999px;
+  z-index: 60;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.22);
+  pointer-events: none;
+  white-space: nowrap;
 }
 .row-add:hover {
   background: rgba(0, 122, 255, 0.1);

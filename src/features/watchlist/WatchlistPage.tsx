@@ -26,6 +26,12 @@ interface Props {
 }
 
 const ALL = '全部';
+/** 两大主分组：观察 ↔ 持仓 支持一键互转（用户 2026-10-18 反馈：⇄ 应直接转移，而非只弹文字菜单） */
+const MAIN_GROUPS = ['观察', '持仓'];
+/** 转移目标组：观察 → 持仓、持仓 → 观察（自定义组落到「观察」） */
+function moveTarget(group: string): string {
+  return group === '持仓' ? '观察' : '持仓';
+}
 
 export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, children }: Props) {
   const { stocks, loading, error, load, add, remove, setGroup } = useWatchlist(repo);
@@ -52,13 +58,26 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   );
   const { quotes: extraQuotes } = useQuotes(extraSelected);
 
-  // 行内转移菜单展开中的行 id（分组互转：观察 ↔ 持仓；同屏只开一个）
+  // 行内转移菜单展开中的行 id（仅自定义分组用；观察/持仓为一键互转，不走菜单）
   const [movingId, setMovingId] = useState<string | null>(null);
-  // 转移分组：写入仓库并更新列表（失败原因由 useWatchlist 写入页面错误横幅）
+  const [toast, setToast] = useState<string | null>(null);
+  // 转移分组：写入仓库并更新列表；成功弹一句提示（否则「全部」视图下看不出转没转）
   const handleMove = async (id: string, group: string) => {
+    const stock = stocks.find((s) => s.id === id);
     setMovingId(null);
-    await setGroup(id, group).catch(() => {});
+    try {
+      await setGroup(id, group);
+      setToast(`已将「${stock?.name || stock?.symbol || '该股'}」转移到${group}`);
+    } catch {
+      // 失败原因已由 useWatchlist 写入页面错误横幅
+    }
   };
+  // toast 自动消失
+  useEffect(() => {
+    if (!toast) return;
+    const t = setTimeout(() => setToast(null), 2000);
+    return () => clearTimeout(t);
+  }, [toast]);
 
   const groups = useMemo(() => groupsOf(stocks), [stocks]);
   // 市场模式结果行行内添加：自选分组映射（bareSymbol → 组名），命中即显示「已xx」不重复加
@@ -188,7 +207,7 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                   <span className="si-code">{s.symbol}</span>
                 </span>
                 {movingId === s.id ? (
-                  // 行内展开：除当前分组外的其他分组，即点即转（不弹层，同选股结果行内加自选）
+                  // 自定义分组：行内展开除当前组外的其他组，即点即转（不弹层）
                   <span className="row-add-menu" data-testid={`move-menu-${s.symbol}`}>
                     {groups
                       .filter((g) => g !== s.group)
@@ -210,12 +229,20 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                   <button
                     type="button"
                     className="row-move"
-                    aria-label={`转移 ${s.name || s.symbol} 到其他分组`}
-                    title="转移分组"
+                    aria-label={`转移 ${s.name || s.symbol} 到${
+                      MAIN_GROUPS.includes(s.group) ? moveTarget(s.group) : '其他分组'
+                    }`}
+                    title={
+                      MAIN_GROUPS.includes(s.group) ? `一键转移到${moveTarget(s.group)}` : '转移分组'
+                    }
                     data-testid={`move-${s.symbol}`}
                     onClick={(e) => {
                       e.stopPropagation();
-                      setMovingId(s.id);
+                      if (MAIN_GROUPS.includes(s.group)) {
+                        void handleMove(s.id, moveTarget(s.group)); // 观察 ↔ 持仓 一键互转
+                      } else {
+                        setMovingId(s.id); // 自定义组：展开菜单选目标
+                      }
                     }}
                   >
                     ⇄
@@ -323,6 +350,13 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
           </>
         )}
       </div>
+
+      {/* 转移成功提示（2 秒自动消失；「全部」视图下也能确认已转走） */}
+      {toast && (
+        <div className="move-toast" role="status" data-testid="move-toast">
+          {toast}
+        </div>
+      )}
     </section>
   );
 }

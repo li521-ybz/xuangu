@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { WatchlistPage } from './WatchlistPage';
 import type { StockRepository } from '../../lib/repository';
 import { InMemoryStockRepository } from '../../lib/repository';
+import { GistStockRepository } from '../../lib/gistRepo';
 
 describe('WatchlistPage 交互', () => {
   it('空态提示', async () => {
@@ -98,7 +99,7 @@ describe('WatchlistPage 交互', () => {
     );
   });
 
-  it('行内转移分组：观察 ⇄ 持仓 双向互转（⇄ → 选目标组 → 按新分组过滤生效）', async () => {
+  it('行内一键转移分组：观察 ⇄ 持仓 双向互转（点 ⇄ 即转，不弹菜单，有成功提示）', async () => {
     const user = userEvent.setup();
     render(<WatchlistPage repo={new InMemoryStockRepository()} />);
     await user.click(screen.getByLabelText('添加自选'));
@@ -106,12 +107,10 @@ describe('WatchlistPage 交互', () => {
     await user.click(screen.getByRole('button', { name: '添加' }));
     const row = await screen.findByTestId('row-sh600000');
 
-    // ① 观察 → 持仓：行内菜单只列出「当前分组之外」的组（不弹层）
+    // ① 观察 → 持仓：点 ⇄ 一键转，不弹菜单，弹出成功提示
     await user.click(within(row).getByTestId('move-sh600000'));
-    const menu = await screen.findByTestId('move-menu-sh600000');
-    expect(within(menu).getByText('持仓')).toBeInTheDocument();
-    expect(within(menu).queryByText('观察')).not.toBeInTheDocument();
-    await user.click(within(menu).getByText('持仓'));
+    expect(await screen.findByTestId('move-toast')).toHaveTextContent('转移到持仓');
+    expect(screen.queryByTestId('move-menu-sh600000')).not.toBeInTheDocument();
 
     // 转移后按新分组过滤生效：持仓里有、观察里没有
     await user.click(screen.getByRole('button', { name: '持仓' }));
@@ -119,17 +118,53 @@ describe('WatchlistPage 交互', () => {
     await user.click(screen.getByRole('button', { name: '观察' }));
     await waitFor(() => expect(screen.queryByTestId('row-sh600000')).not.toBeInTheDocument());
 
-    // ② 持仓 → 观察：反向同样可用
+    // ② 持仓 → 观察：反向一键转
     await user.click(screen.getByRole('button', { name: '持仓' }));
     const row2 = await screen.findByTestId('row-sh600000');
     await user.click(within(row2).getByTestId('move-sh600000'));
-    const menu2 = await screen.findByTestId('move-menu-sh600000');
-    expect(within(menu2).getByText('观察')).toBeInTheDocument();
-    expect(within(menu2).queryByText('持仓')).not.toBeInTheDocument();
-    await user.click(within(menu2).getByText('观察'));
+    expect(await screen.findByTestId('move-toast')).toHaveTextContent('转移到观察');
 
     await user.click(screen.getByRole('button', { name: '观察' }));
     expect(await screen.findByTestId('row-sh600000')).toBeInTheDocument();
+  });
+
+  it('Gist 仓库路径：⇄ 一键转移分组写入远端 Gist 并在界面生效', async () => {
+    const user = userEvent.setup();
+    // 内存态假 Gist 服务：GET 返回当前内容，PATCH 记录并更新（与 gistRepo.test.ts 同手法）
+    let gistContent = JSON.stringify({
+      version: 1,
+      stocks: [{ id: 'g1', symbol: 'sh600853', name: '龙建股份', group: '观察' }]
+    });
+    const patches: any[] = [];
+    const fetchImpl = async (input: RequestInfo | URL, opts: any = {}) => {
+      const url = String(input);
+      if ((opts.method || 'GET') === 'PATCH') {
+        const body = JSON.parse(opts.body);
+        patches.push(body);
+        gistContent = body.files['stocks.json'].content;
+      }
+      return {
+        ok: true,
+        status: 200,
+        json: async () => ({ id: 'g', files: { 'stocks.json': { content: gistContent } } }),
+        text: async () => '',
+        arrayBuffer: async () => new ArrayBuffer(0)
+      } as any;
+    };
+    const repo = new GistStockRepository({ token: 't', gistId: 'g', fetchImpl });
+
+    render(<WatchlistPage repo={repo} />);
+    const row = await screen.findByTestId('row-sh600853');
+    // 一键转移：点 ⇄ 即写远端（观察 → 持仓），无需再选组
+    await user.click(within(row).getByTestId('move-sh600853'));
+
+    // 远端真的被 PATCH，且内容里 group 已改成持仓
+    await waitFor(() => expect(patches.length).toBe(1));
+    const written = JSON.parse(patches[0].files['stocks.json'].content);
+    expect(written.stocks.find((s: any) => s.id === 'g1').group).toBe('持仓');
+    // 界面同步：切到「持仓」分组能看到该行
+    await user.click(screen.getByRole('button', { name: '持仓' }));
+    expect(await screen.findByTestId('row-sh600853')).toBeInTheDocument();
   });
 });
 
