@@ -221,6 +221,48 @@ describe('主条件评估（日K）', () => {
   });
 });
 
+describe('价格限制（2026-10-18，用户可自定义区间；判定=最新收盘价）', () => {
+  // mainPassFixture 最新收盘 11.35
+  const opts = (extra: Partial<Parameters<typeof evalMainConditions>[1]> = {}) => ({
+    code: '600000',
+    name: '测试',
+    toggles: { ...DEFAULT_TOGGLES, priceLimit: true },
+    ...extra
+  });
+
+  it('默认关：DEFAULT_TOGGLES.priceLimit=false，不传区间照常全过', () => {
+    expect(DEFAULT_TOGGLES.priceLimit).toBe(false);
+    expect(evalMainConditions(mainPassFixture(), { code: '600000', name: '测试' }).pass).toBe(true);
+  });
+
+  it('区间内（10–12）→ 过；高于上限（10–11）→ 不过；低于下限（12–20）→ 不过', () => {
+    expect(evalMainConditions(mainPassFixture(), opts({ priceMin: 10, priceMax: 12 })).pass).toBe(true);
+    const r1 = evalMainConditions(mainPassFixture(), opts({ priceMin: 10, priceMax: 11 }));
+    expect(r1.pass).toBe(false);
+    expect(r1.failReasons).toContain('价格 11.35 高于上限 11');
+    const r2 = evalMainConditions(mainPassFixture(), opts({ priceMin: 12, priceMax: 20 }));
+    expect(r2.pass).toBe(false);
+    expect(r2.failReasons).toContain('价格 11.35 低于下限 12');
+  });
+
+  it('单边限制：只设下限 11 → 过；只设上限 11 → 不过；两端留空 → 不限', () => {
+    expect(evalMainConditions(mainPassFixture(), opts({ priceMin: 11 })).pass).toBe(true);
+    expect(evalMainConditions(mainPassFixture(), opts({ priceMax: 11 })).pass).toBe(false);
+    expect(evalMainConditions(mainPassFixture(), opts()).pass).toBe(true);
+  });
+
+  it('开关关闭时传了区间也不生效', () => {
+    const r = evalMainConditions(mainPassFixture(), {
+      code: '600000',
+      name: '测试',
+      toggles: { ...DEFAULT_TOGGLES, priceLimit: false },
+      priceMin: 100,
+      priceMax: 200
+    });
+    expect(r.pass).toBe(true);
+  });
+});
+
 describe('收盘价 > MA10（日K）', () => {
   it('上行末端站上 MA10；回落则否；数据不足否', () => {
     const up = Array.from({ length: 25 }, (_, i) => 10 + i * 0.05);

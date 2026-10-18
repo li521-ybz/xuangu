@@ -1,19 +1,65 @@
 // 模块④ 条件面板组件测试：开关/运行/进度/空态
+import { useState } from 'react';
 import { describe, it, expect, vi } from 'vitest';
 import { render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { ScreenerPanel } from './ScreenerPanel';
 import { DEFAULT_TOGGLES } from './conditions';
+import type { PriceRange } from './useScreener';
 
 describe('ScreenerPanel 条件面板', () => {
-  it('渲染 1 剔除 + 4 主条件 + 3 买点开关，默认全开', () => {
+  it('渲染 1 剔除 + 1 价格限制 + 4 主条件 + 3 买点开关；除价格限制外默认全开', () => {
     render(
       <ScreenerPanel toggles={DEFAULT_TOGGLES} onToggle={() => {}} onRun={() => {}} running={false} progress="" total={3} />
     );
     const switches = screen.getAllByRole('switch');
-    expect(switches).toHaveLength(8);
-    switches.forEach((s) => expect(s).toHaveAttribute('aria-checked', 'true'));
+    expect(switches).toHaveLength(9);
+    // 价格限制默认关（不改变现有筛选行为，用户开启后填值生效），其余默认开
+    expect(screen.getByRole('switch', { name: '限定价格区间' })).toHaveAttribute('aria-checked', 'false');
+    switches
+      .filter((s) => s.getAttribute('aria-label') !== '限定价格区间')
+      .forEach((s) => expect(s).toHaveAttribute('aria-checked', 'true'));
     expect(screen.getByRole('button', { name: '开始筛选' })).toBeInTheDocument();
+  });
+
+  it('价格限制：默认关不显示输入；点开关回调 priceLimit', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(
+      <ScreenerPanel toggles={DEFAULT_TOGGLES} onToggle={onToggle} onRun={() => {}} running={false} progress="" total={3} />
+    );
+    expect(screen.queryByRole('spinbutton', { name: '最低价' })).not.toBeInTheDocument();
+    await user.click(screen.getByRole('switch', { name: '限定价格区间' }));
+    expect(onToggle).toHaveBeenCalledWith('priceLimit');
+  });
+
+  it('价格限制：开启后最低/最高输入可填可清（值经 parsePrice 解析，清空=不限）', async () => {
+    const user = userEvent.setup();
+    // 有状态夹具：价格区间存在 useScreener，面板受控；mock 回调不更新 state 会被 React 重置值
+    function Harness() {
+      const [range, setRange] = useState<PriceRange>({ min: null, max: null });
+      return (
+        <ScreenerPanel
+          toggles={{ ...DEFAULT_TOGGLES, priceLimit: true }}
+          onToggle={() => {}}
+          onRun={() => {}}
+          running={false}
+          progress=""
+          total={3}
+          priceRange={range}
+          onPriceRangeChange={setRange}
+        />
+      );
+    }
+    render(<Harness />);
+    const min = screen.getByRole('spinbutton', { name: '最低价' }) as HTMLInputElement;
+    const max = screen.getByRole('spinbutton', { name: '最高价' }) as HTMLInputElement;
+    await user.type(min, '5');
+    expect(min.value).toBe('5');
+    await user.type(max, '50');
+    expect(max.value).toBe('50');
+    await user.clear(max);
+    expect(max.value).toBe(''); // 清空 → null → 该端不限
   });
 
   it('剔除 ST 开关：默认开，点击回调 excludeSt', async () => {

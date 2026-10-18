@@ -12,6 +12,8 @@
 //        距涨停 >6 日：30 分 MA13 上穿 MA25（5 根内）＋ 60 分 MA13 上穿 MA25（5 根内）
 //   剔除项（2026-10-18 新增，用户要求；默认开）：
 //     0. 剔除 ST：名称含 ST 的股票不进扫描（编排层按名称过滤，不拉K线；关开关后 ST 按 5% 涨停阈值照常参与）
+//   价格限制（2026-10-18 新增，用户要求可自定义；默认关）：
+//     8. 限定价格区间：最新收盘价在 [priceMin, priceMax] 内（任一端留空 = 不限；值为用户自定义，UI 输入）
 // 已知限制：日K 为前复权（qfq），窗口内遇除权时涨停识别可能漏检（v1 接受，见开发计划）。
 import type { Candle } from '../../lib/types';
 import { movingAverage } from '../chart/ma';
@@ -42,10 +44,12 @@ export interface ConditionToggles {
   closeAboveMa10: boolean; // 收盘价 > 10 日线
   bollNarrow: boolean; // 30 分 BOLL 缩口 + 30 分 13/25 买点（两分支均生效）
   maCross60: boolean; // 60 分 13/25 买点（>6 日分支）
+  priceLimit: boolean; // 限定价格区间（最新收盘价在 [priceMin, priceMax]；默认关，值由用户自定义）
 }
 
 export const DEFAULT_TOGGLES: ConditionToggles = {
   excludeSt: true,
+  priceLimit: false,
   limitUpWindow: true,
   shrink: true,
   notBreakLimitLow: true,
@@ -62,6 +66,8 @@ export interface MainOptions {
   windowMin?: number;
   windowMax?: number;
   shrinkRatio?: number;
+  priceMin?: number | null; // 价格下限（元）；null/undefined = 不限（2026-10-18 用户可自定义）
+  priceMax?: number | null; // 价格上限（元）；null/undefined = 不限
 }
 
 export interface MainResult {
@@ -190,6 +196,15 @@ export function evalMainConditions(dayCandles: Candle[], opts: MainOptions = {})
   // 收盘价 > 20 日线：最新一日收盘 > 当日 MA20（2026-10-18 由「不破 20 日线」修改，原检查 T+1~最新每日）
   if (toggles.closeAboveMa20 && !closeAboveMa20(c)) {
     failReasons.push('收盘未站上 MA20');
+  }
+
+  // 价格限制：最新收盘价在 [priceMin, priceMax] 内（2026-10-18 新增；任一端留空 = 不限）
+  if (toggles.priceLimit) {
+    const lastClose = c[c.length - 1].close;
+    const min = opts.priceMin ?? null;
+    const max = opts.priceMax ?? null;
+    if (min !== null && lastClose < min) failReasons.push(`价格 ${lastClose.toFixed(2)} 低于下限 ${min}`);
+    if (max !== null && lastClose > max) failReasons.push(`价格 ${lastClose.toFixed(2)} 高于上限 ${max}`);
   }
 
   return { pass: failReasons.length === 0, limitUpIndex: t, daysSinceLimitUp: daysSince, shrinkActual, failReasons };

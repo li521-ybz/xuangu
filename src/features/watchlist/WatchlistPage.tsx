@@ -157,6 +157,8 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
             onRosterRefresh={roster.refresh}
             onCancel={screenerCtl.cancel}
             emptyHint={scope === 'market' ? '暂无可用名单，请刷新重试' : undefined}
+            priceRange={screenerCtl.priceRange}
+            onPriceRangeChange={screenerCtl.setPriceRange}
           />
         ) : !loading && visible.length === 0 ? (
           <p className="empty">暂无自选，点 ＋ 添加</p>

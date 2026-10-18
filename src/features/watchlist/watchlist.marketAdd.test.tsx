@@ -49,6 +49,8 @@ vi.mock('../screener/useScreener', () => ({
     progress: '',
     toggles: {},
     toggle: () => {},
+    priceRange: { min: null, max: null },
+    setPriceRange: () => {},
     run: () => {},
     cancel: () => {},
     reset: () => {}

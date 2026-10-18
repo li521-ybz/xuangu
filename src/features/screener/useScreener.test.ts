@@ -161,6 +161,31 @@ describe('useScreener 编排', () => {
     expect(result.current.scanned).toBe(2);
   });
 
+  it('价格限制：区间透传 evalMainConditions；setPriceRange 后下次 run 用新值', async () => {
+    vi.mocked(fetchDaily).mockImplementation(async (_s, period?: KlinePeriod) =>
+      period === 'day' ? FRESH() : []
+    );
+    const { result } = renderHook(() => useScreener([stock('sh600000')]));
+    await act(async () => {
+      result.current.setPriceRange({ min: 5, max: 50 });
+    });
+    expect(result.current.priceRange).toEqual({ min: 5, max: 50 });
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(vi.mocked(evalMainConditions).mock.calls[0]?.[1]).toMatchObject({ priceMin: 5, priceMax: 50 });
+
+    // 改区间（含单端置空）→ 下一轮用新值
+    await act(async () => {
+      result.current.setPriceRange({ min: null, max: 10 });
+    });
+    await act(async () => {
+      await result.current.run();
+    });
+    const calls = vi.mocked(evalMainConditions).mock.calls;
+    expect(calls[calls.length - 1]?.[1]).toMatchObject({ priceMin: null, priceMax: 10 });
+  });
+
   it('停止：作废运行、不出结果；reset：清空已有结果', async () => {
     vi.mocked(fetchDaily).mockImplementation(
       () => new Promise<Candle[]>(() => {}) // 永不返回

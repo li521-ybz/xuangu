@@ -2,8 +2,10 @@
 // 参数口径固定（用户 2026-10-17 拍板「条件是这些固定的」），不在 UI 暴露调参。
 // 2026-10-18 市场模式：顶部「选股范围」分段（自选股/沪深A股）+ 名单状态行 + 运行中「停止」。
 // 2026-10-18 剔除 ST（用户要求）：独立「剔除」组开关，默认开；开则 ST 股不进扫描。
+// 2026-10-18 价格限制（用户要求可自定义）：「价格限制」组开关默认关，开启后显「最低/最高」两个输入框（留空=不限）。
 // 新增 props 全部可选：不传即自选股口径，旧调用行为不变。
 import type { ConditionToggles } from './conditions';
+import type { PriceRange } from './useScreener';
 
 export type ScreenerScope = 'watchlist' | 'market';
 
@@ -23,6 +25,14 @@ interface Props {
   onRosterRefresh?: () => void; // 刷新/重试名单
   onCancel?: () => void; // 停止本轮扫描
   emptyHint?: string; // total===0 时的提示文案
+  priceRange?: PriceRange; // 价格限制区间（元）；不传按 { min: null, max: null } 不限处理
+  onPriceRangeChange?: (next: PriceRange) => void; // 价格输入变更
+}
+
+/** 价格输入解析：空串/非有限值/负数 → null（该端不限） */
+function parsePrice(v: string): number | null {
+  const n = Number(v);
+  return v.trim() !== '' && Number.isFinite(n) && n >= 0 ? n : null;
 }
 
 interface Item {
@@ -88,7 +98,9 @@ export function ScreenerPanel({
   rosterNote,
   onRosterRefresh,
   onCancel,
-  emptyHint
+  emptyHint,
+  priceRange,
+  onPriceRangeChange
 }: Props) {
   return (
     <div className="screener-panel" data-testid="screener-panel">
@@ -140,6 +152,46 @@ export function ScreenerPanel({
         {EXCLUDE_ITEMS.map((it) => (
           <ToggleRow key={it.key} item={it} checked={toggles[it.key]} onChange={() => onToggle(it.key)} />
         ))}
+      </div>
+      <div className="cond-group">
+        <h4>价格限制</h4>
+        <ToggleRow
+          item={{ key: 'priceLimit', label: '限定价格区间', hint: '判定用最新收盘价，留空 = 不限' }}
+          checked={toggles.priceLimit}
+          onChange={() => onToggle('priceLimit')}
+        />
+        {toggles.priceLimit && onPriceRangeChange && (
+          <div className="price-row">
+            <label className="price-field">
+              <span>最低</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="不限"
+                aria-label="最低价"
+                value={priceRange?.min ?? ''}
+                onChange={(e) => onPriceRangeChange({ min: parsePrice(e.target.value), max: priceRange?.max ?? null })}
+              />
+            </label>
+            <span className="price-sep">–</span>
+            <label className="price-field">
+              <span>最高</span>
+              <input
+                type="number"
+                min="0"
+                step="0.01"
+                inputMode="decimal"
+                placeholder="不限"
+                aria-label="最高价"
+                value={priceRange?.max ?? ''}
+                onChange={(e) => onPriceRangeChange({ min: priceRange?.min ?? null, max: parsePrice(e.target.value) })}
+              />
+            </label>
+            <span className="price-unit">元</span>
+          </div>
+        )}
       </div>
       <div className="cond-group">
         <h4>主条件（日K）</h4>

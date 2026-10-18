@@ -537,6 +537,44 @@ button {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
+/* 价格限制输入行（2026-10-18）：样式同 .modal input，轻量适配中栏宽度 */
+.price-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 2px 4px;
+}
+.price-field {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--muted);
+}
+.price-field input {
+  width: 100%;
+  min-width: 0;
+  border: none;
+  border-radius: 8px;
+  background: var(--fill);
+  padding: 7px 10px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--fg);
+  outline: none;
+  transition: box-shadow 0.15s;
+}
+.price-field input:focus {
+  box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
+}
+.price-sep,
+.price-unit {
+  flex: none;
+  font-size: 12px;
+  color: var(--muted);
+}
 
 /* 选股范围分段（自选股 / 沪深A股，2026-10-18） */
 .scope-switch {

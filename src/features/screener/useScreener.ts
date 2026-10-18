@@ -21,6 +21,12 @@ import {
 
 export type ScreenStatus = 'hit' | 'candidate' | 'no-data';
 
+/** 价格限制区间（元，2026-10-18 用户可自定义）；任一端 null = 不限 */
+export interface PriceRange {
+  min: number | null;
+  max: number | null;
+}
+
 export interface ScreenRow {
   stock: Stock;
   status: ScreenStatus;
@@ -72,6 +78,7 @@ export function useScreener(
   const [progress, setProgress] = useState('');
   const [scanned, setScanned] = useState(0); // 本轮实际扫描只数（市场模式结果汇总用）
   const [toggles, setToggles] = useState<ConditionToggles>(DEFAULT_TOGGLES);
+  const [priceRange, setPriceRange] = useState<PriceRange>({ min: null, max: null });
   const runId = useRef(0); // 连续点击/退出/取消时旧任务结果作废
 
   const run = useCallback(async () => {
@@ -102,7 +109,13 @@ export function useScreener(
         try {
           const day = await fetchDaily(s.symbol, 'day', fetchImpl, { bars, scanHost: opts.scanHost });
           assertFresh(day, staleDays);
-          const main = evalMainConditions(day, { code: bareSymbol(s.symbol), name: s.name, toggles });
+          const main = evalMainConditions(day, {
+            code: bareSymbol(s.symbol),
+            name: s.name,
+            toggles,
+            priceMin: priceRange.min,
+            priceMax: priceRange.max
+          });
           if (main.pass) results.push({ stock: s, status: 'candidate', main, day });
         } catch (e) {
           results.push({ stock: s, status: 'no-data', note: `日K拉取失败：${(e as Error).message}` });
@@ -151,7 +164,7 @@ export function useScreener(
     } finally {
       if (id === runId.current) setRunning(false);
     }
-  }, [stocks, toggles, fetchImpl, opts]);
+  }, [stocks, toggles, fetchImpl, opts, priceRange]);
 
   /** 停止本轮扫描：作废旧任务（在途请求最多 conc 个，完成后即丢弃），保留已有结果 */
   const cancel = useCallback(() => {
@@ -173,5 +186,5 @@ export function useScreener(
     setToggles((t) => ({ ...t, [key]: !t[key] }));
   }, []);
 
-  return { rows, running, progress, scanned, toggles, toggle, run, cancel, reset };
+  return { rows, running, progress, scanned, toggles, toggle, priceRange, setPriceRange, run, cancel, reset };
 }
