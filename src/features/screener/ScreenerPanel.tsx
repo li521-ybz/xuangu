@@ -1,6 +1,7 @@
 // 模块④ 条件面板（中栏）：主条件/买点条件开关 + 口径说明 + 开始筛选
 // 参数口径固定（用户 2026-10-17 拍板「条件是这些固定的」），不在 UI 暴露调参。
 // 2026-10-18 市场模式：顶部「选股范围」分段（自选股/沪深A股）+ 名单状态行 + 运行中「停止」。
+// 2026-10-18 剔除 ST（用户要求）：独立「剔除」组开关，默认开；开则 ST 股不进扫描。
 // 新增 props 全部可选：不传即自选股口径，旧调用行为不变。
 import type { ConditionToggles } from './conditions';
 
@@ -42,6 +43,9 @@ const BUY_ITEMS: Item[] = [
   { key: 'bollNarrow', label: '30 分 BOLL 缩口 + 13/25 买点', hint: '两分支均 30 分 BOLL(45,2) + 30 分 13/25' },
   { key: 'maCross60', label: '60 分 13/25 买点', hint: '仅 >6 日分支生效' }
 ];
+
+// 剔除项（2026-10-18 新增）：名称含 ST 的风险警示板，默认剔除
+const EXCLUDE_ITEMS: Item[] = [{ key: 'excludeSt', label: 'ST 股票', hint: '名称含 ST / *ST 的风险警示板' }];
 
 const SCOPES: Array<{ key: ScreenerScope; label: string }> = [
   { key: 'watchlist', label: '自选股' },
@@ -131,6 +135,12 @@ export function ScreenerPanel({
         </div>
       )}
 
+      <div className="cond-group">
+        <h4>剔除</h4>
+        {EXCLUDE_ITEMS.map((it) => (
+          <ToggleRow key={it.key} item={it} checked={toggles[it.key]} onChange={() => onToggle(it.key)} />
+        ))}
+      </div>
       <div className="cond-group">
         <h4>主条件（日K）</h4>
         {MAIN_ITEMS.map((it) => (

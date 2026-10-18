@@ -130,6 +130,37 @@ describe('useScreener 编排', () => {
     expect(result.current.rows[0].status).not.toBe('no-data');
   });
 
+  it('剔除 ST（默认开）：ST 股不拉K线、不进结果、不计 scanned', async () => {
+    vi.mocked(fetchDaily).mockImplementation(async (_s, period?: KlinePeriod) =>
+      period === 'day' ? FRESH() : []
+    );
+    const stStock: Stock = { id: 'sz000002', symbol: 'sz000002', name: '*ST 万科', group: '观察' };
+    const { result } = renderHook(() => useScreener([stock('sh600000'), stStock]));
+    await act(async () => {
+      await result.current.run();
+    });
+    const dayCalls = vi.mocked(fetchDaily).mock.calls.filter((c) => c[1] === 'day');
+    expect(dayCalls.map((c) => c[0])).toEqual(['sh600000']);
+    expect(result.current.scanned).toBe(1);
+    expect(result.current.rows).toHaveLength(1);
+    expect(result.current.rows[0].stock.symbol).toBe('sh600000');
+  });
+
+  it('关掉剔除开关：ST 股照常扫描', async () => {
+    vi.mocked(fetchDaily).mockImplementation(async (_s, period?: KlinePeriod) =>
+      period === 'day' ? FRESH() : []
+    );
+    const stStock: Stock = { id: 'sz000002', symbol: 'sz000002', name: '*ST 万科', group: '观察' };
+    const { result } = renderHook(() => useScreener([stock('sh600000'), stStock]));
+    await act(async () => {
+      result.current.toggle('excludeSt');
+    });
+    await act(async () => {
+      await result.current.run();
+    });
+    expect(result.current.scanned).toBe(2);
+  });
+
   it('停止：作废运行、不出结果；reset：清空已有结果', async () => {
     vi.mocked(fetchDaily).mockImplementation(
       () => new Promise<Candle[]>(() => {}) // 永不返回

@@ -11,6 +11,7 @@ import {
   findLimitUpIndex,
   firstLimitUpInRun,
   isLimitUp,
+  isStStock,
   limitPctFor,
   DEFAULT_TOGGLES
 } from './conditions';
@@ -66,6 +67,21 @@ describe('涨停识别（分板块阈值）', () => {
 
   it('边界：首根无前收，不算涨停', () => {
     expect(isLimitUp(mk([11]), 0, '600000', '测试')).toBe(false);
+  });
+});
+
+describe('ST 识别（剔除项，2026-10-18）', () => {
+  it('名称含 ST/*ST/S*ST → ST 股；普通名/空名/大小写 → 否', () => {
+    expect(isStStock('ST 高鸿')).toBe(true);
+    expect(isStStock('*ST 宏图')).toBe(true);
+    expect(isStStock('S*ST 沪科')).toBe(true);
+    expect(isStStock('st 测试')).toBe(true); // 大小写不敏感
+    expect(isStStock('平安银行')).toBe(false);
+    expect(isStStock('')).toBe(false);
+  });
+
+  it('DEFAULT_TOGGLES.excludeSt 默认开', () => {
+    expect(DEFAULT_TOGGLES.excludeSt).toBe(true);
   });
 });
 

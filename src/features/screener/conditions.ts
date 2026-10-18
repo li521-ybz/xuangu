@@ -10,6 +10,8 @@
 //     6. 30 分 BOLL(45,2) 带宽近 3 根持续下降（缩口）——两分支同参数
 //     7. 距涨停 ≤6 日：仅 30 分 MA13 上穿 MA25（5 根内）
 //        距涨停 >6 日：30 分 MA13 上穿 MA25（5 根内）＋ 60 分 MA13 上穿 MA25（5 根内）
+//   剔除项（2026-10-18 新增，用户要求；默认开）：
+//     0. 剔除 ST：名称含 ST 的股票不进扫描（编排层按名称过滤，不拉K线；关开关后 ST 按 5% 涨停阈值照常参与）
 // 已知限制：日K 为前复权（qfq），窗口内遇除权时涨停识别可能漏检（v1 接受，见开发计划）。
 import type { Candle } from '../../lib/types';
 import { movingAverage } from '../chart/ma';
@@ -32,6 +34,7 @@ export const NARROW_BARS = 3;
 export const CROSS_WITHIN = 5;
 
 export interface ConditionToggles {
+  excludeSt: boolean; // 剔除 ST（名称含 ST 的风险警示板；默认开）
   limitUpWindow: boolean; // 涨停后 3–10 日内
   shrink: boolean; // 缩量至 55% 及以下
   notBreakLimitLow: boolean; // 不破首板最低价（连板取第一个涨停日）
@@ -42,6 +45,7 @@ export interface ConditionToggles {
 }
 
 export const DEFAULT_TOGGLES: ConditionToggles = {
+  excludeSt: true,
   limitUpWindow: true,
   shrink: true,
   notBreakLimitLow: true,
@@ -73,10 +77,14 @@ function bare(code: string): string {
   return (code ?? '').replace(/^[a-zA-Z]{2}/, '');
 }
 
+/** ST 股识别：名称含 ST（ST / *ST / S*ST 等风险警示板） */
+export function isStStock(name: string): boolean {
+  return (name ?? '').toUpperCase().includes('ST');
+}
+
 /** 涨跌停幅度（%）：ST 5%；双创（300/301/688/689）20%；北交所（8/4/920）30%；主板 10% */
 export function limitPctFor(code: string, name: string): number {
-  const n = (name ?? '').toUpperCase();
-  if (n.includes('ST')) return 5;
+  if (isStStock(name)) return 5;
   const c = bare(code);
   if (/^(30|301|688|689)/.test(c)) return 20;
   if (/^(8|4|920)/.test(c)) return 30;

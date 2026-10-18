@@ -13,6 +13,7 @@ import {
   DEFAULT_TOGGLES,
   evalBuyPoint,
   evalMainConditions,
+  isStStock,
   type BuyPointResult,
   type ConditionToggles,
   type MainResult
@@ -84,17 +85,19 @@ export function useScreener(
     setScanned(0);
     const results: ScreenRow[] = [];
     const startedAt = Date.now();
+    // 剔除 ST（默认开）：名称含 ST 的股票不扫描、不拉K线（全市场档省流量）；关开关后照常参与
+    const targets = toggles.excludeSt ? stocks.filter((s) => !isStStock(s.name)) : stocks;
     try {
       // 第一段：日K → 主条件（涨停窗口/缩量/不破位）
       let done = 0;
       let lastTick = 0;
-      await mapLimit(stocks, conc, async (s) => {
+      await mapLimit(targets, conc, async (s) => {
         if (id !== runId.current) return;
         const n = ++done;
         const now = Date.now();
-        if (n === stocks.length || now - lastTick >= 400) {
+        if (n === targets.length || now - lastTick >= 400) {
           lastTick = now;
-          setProgress(`拉取日K ${n}/${stocks.length}${etaText(startedAt, now, n, stocks.length)}`);
+          setProgress(`拉取日K ${n}/${targets.length}${etaText(startedAt, now, n, targets.length)}`);
         }
         try {
           const day = await fetchDaily(s.symbol, 'day', fetchImpl, { bars, scanHost: opts.scanHost });

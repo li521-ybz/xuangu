@@ -6,14 +6,26 @@ import { ScreenerPanel } from './ScreenerPanel';
 import { DEFAULT_TOGGLES } from './conditions';
 
 describe('ScreenerPanel 条件面板', () => {
-  it('渲染 4 主条件 + 3 买点开关，默认全开', () => {
+  it('渲染 1 剔除 + 4 主条件 + 3 买点开关，默认全开', () => {
     render(
       <ScreenerPanel toggles={DEFAULT_TOGGLES} onToggle={() => {}} onRun={() => {}} running={false} progress="" total={3} />
     );
     const switches = screen.getAllByRole('switch');
-    expect(switches).toHaveLength(7);
+    expect(switches).toHaveLength(8);
     switches.forEach((s) => expect(s).toHaveAttribute('aria-checked', 'true'));
     expect(screen.getByRole('button', { name: '开始筛选' })).toBeInTheDocument();
+  });
+
+  it('剔除 ST 开关：默认开，点击回调 excludeSt', async () => {
+    const user = userEvent.setup();
+    const onToggle = vi.fn();
+    render(
+      <ScreenerPanel toggles={DEFAULT_TOGGLES} onToggle={onToggle} onRun={() => {}} running={false} progress="" total={3} />
+    );
+    const sw = screen.getByRole('switch', { name: 'ST 股票' });
+    expect(sw).toHaveAttribute('aria-checked', 'true');
+    await user.click(sw);
+    expect(onToggle).toHaveBeenCalledWith('excludeSt');
   });
 
   it('点开关回调对应条件键', async () => {
