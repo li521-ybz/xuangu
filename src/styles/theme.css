@@ -94,15 +94,7 @@ button {
 
 /* ---------- 分段控件（iOS Segmented Control） ---------- */
 .segmented,
-.period-tabs {
-  display: inline-flex;
-  background: var(--fill);
-  border-radius: 9px;
-  padding: 2px;
-  gap: 2px;
-}
-.segmented .seg,
-.period-tabs button {
+.segmented .seg {
   border: none;
   background: transparent;
   border-radius: 7px;
@@ -112,13 +104,9 @@ button {
   color: var(--fg);
   transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
 }
-.segmented .seg.active,
-.period-tabs button.active {
+.segmented .seg.active {
   background: #fff;
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
-}
-.period-tabs button:active {
-  opacity: 0.7;
 }
 
 /* ---------- 一页式三栏终端（2026-10-17）：左分组导航 + 中股票列表 + 右主区 ---------- */
@@ -417,9 +405,6 @@ button {
   font-size: 13px;
   font-weight: 600;
   color: var(--muted);
-}
-.period-tabs {
-  margin-bottom: 8px;
 }
 
 /* ---------- 模块④ 条件选股（2026-10-17）：左栏入口 + 中栏条件面板 + 右栏结果 ---------- */
