@@ -156,7 +156,7 @@ export function ScreenerPanel({
       <div className="cond-group">
         <h4>价格限制</h4>
         <ToggleRow
-          item={{ key: 'priceLimit', label: '限定价格区间', hint: '判定用最新收盘价，留空 = 不限' }}
+          item={{ key: 'priceLimit', label: '限定价格区间', hint: '判定用最新收盘价（元），留空 = 不限' }}
           checked={toggles.priceLimit}
           onChange={() => onToggle('priceLimit')}
         />
@@ -189,7 +189,6 @@ export function ScreenerPanel({
                 onChange={(e) => onPriceRangeChange({ min: priceRange?.min ?? null, max: parsePrice(e.target.value) })}
               />
             </label>
-            <span className="price-unit">元</span>
           </div>
         )}
       </div>

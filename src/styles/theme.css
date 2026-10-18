@@ -537,20 +537,20 @@ button {
   color: var(--muted);
   font-variant-numeric: tabular-nums;
 }
-/* 价格限制输入行（2026-10-18）：样式同 .modal input，轻量适配中栏宽度 */
+/* 价格限制输入行（2026-10-18）：标签竖排不占横向空间，输入框占满可用宽度（中栏仅 200px，横排标签会把输入框挤成拇指宽） */
 .price-row {
   display: flex;
-  align-items: center;
+  align-items: flex-end;
   gap: 8px;
-  padding: 8px 2px 4px;
+  padding: 6px 2px 4px;
 }
 .price-field {
   display: flex;
-  align-items: center;
-  gap: 6px;
+  flex-direction: column;
+  gap: 4px;
   flex: 1;
   min-width: 0;
-  font-size: 12px;
+  font-size: 11px;
   color: var(--muted);
 }
 .price-field input {
@@ -559,9 +559,9 @@ button {
   border: none;
   border-radius: 8px;
   background: var(--fill);
-  padding: 7px 10px;
+  padding: 8px 10px;
   font: inherit;
-  font-size: 14px;
+  font-size: 15px;
   color: var(--fg);
   outline: none;
   transition: box-shadow 0.15s;
@@ -569,10 +569,10 @@ button {
 .price-field input:focus {
   box-shadow: 0 0 0 3px rgba(0, 122, 255, 0.25);
 }
-.price-sep,
-.price-unit {
+.price-sep {
   flex: none;
-  font-size: 12px;
+  padding-bottom: 9px;
+  font-size: 13px;
   color: var(--muted);
 }
 
