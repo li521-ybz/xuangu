@@ -16,10 +16,9 @@ describe('App 集成', () => {
     const row = await screen.findByTestId('row-sh600000');
     await user.click(row); // 点击行切换图表股票
 
-    // 图表（日K + 30分 + 60分）出现
+    // 图表（日K + 分钟K Tab）出现
     expect(await screen.findByTestId('day-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('m30-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('m60-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('minute-chart')).toBeInTheDocument();
     // 列表仍在（同一页）
     expect(screen.getByTestId('row-sh600000')).toBeInTheDocument();
   });
@@ -34,7 +33,6 @@ describe('App 集成', () => {
 
     // 默认选中逻辑：加载完即选中当前筛选第一个，进来就能看图
     expect(await screen.findByTestId('day-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('m30-chart')).toBeInTheDocument();
-    expect(screen.getByTestId('m60-chart')).toBeInTheDocument();
+    expect(screen.getByTestId('minute-chart')).toBeInTheDocument();
   });
 });

@@ -406,6 +406,31 @@ button {
   font-weight: 600;
   color: var(--muted);
 }
+.period-tabs {
+  display: inline-flex;
+  background: var(--fill);
+  border-radius: 9px;
+  padding: 2px;
+  gap: 2px;
+  margin-bottom: 8px;
+}
+.period-tabs button {
+  border: none;
+  background: transparent;
+  border-radius: 7px;
+  padding: 6px 14px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--fg);
+  transition: background 0.2s var(--ease), box-shadow 0.2s var(--ease);
+}
+.period-tabs button.active {
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.14);
+}
+.period-tabs button:active {
+  opacity: 0.7;
+}
 
 /* ---------- 模块④ 条件选股（2026-10-17）：左栏入口 + 中栏条件面板 + 右栏结果 ---------- */
 /* 入口按钮与分组 tab 同类（宽屏选中态由 .app.wide .group-side .tab.active 覆盖，踩坑 #24 同防）；
