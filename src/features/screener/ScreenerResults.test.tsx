@@ -84,3 +84,74 @@ describe('ScreenerResults 市场模式（2026-10-18）', () => {
     expect(screen.getByText('扫描进行中，进度见左侧条件面板')).toBeInTheDocument();
   });
 });
+
+// 2026-10-18 市场模式行内添加（用户拍板 A 方案）：＋ → 观察/持仓 即点即加，不弹层
+describe('ScreenerResults 市场模式行内添加（2026-10-18，A 方案）', () => {
+  const marketRows = rows.filter((r) => r.status !== 'no-data'); // hit + candidate
+
+  it('hit/candidate 行显示「＋」；数据缺失行不显示', () => {
+    render(<ScreenerResults rows={rows} onView={() => {}} mode="market" onAdd={() => {}} />);
+    expect(screen.getByTestId('screen-add-sh600000')).toBeInTheDocument();
+    expect(screen.getByTestId('screen-add-sz000001')).toBeInTheDocument();
+    // 死票/陈旧行加进来只会多一行看不动的自选，不给加
+    expect(screen.queryByTestId('screen-add-sz300002')).not.toBeInTheDocument();
+  });
+
+  it('自选模式（无 onAdd）不显示「＋」', () => {
+    render(<ScreenerResults rows={rows} onView={() => {}} />);
+    expect(screen.queryByTestId('screen-add-sh600000')).not.toBeInTheDocument();
+  });
+
+  it('点「＋」行内展开观察/持仓，点分组回调且不触发 onView、菜单收起', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn();
+    const onView = vi.fn();
+    render(<ScreenerResults rows={marketRows} onView={onView} mode="market" onAdd={onAdd} />);
+    await user.click(screen.getByTestId('screen-add-sh600000'));
+    const menu = screen.getByTestId('screen-add-menu-sh600000');
+    await user.click(within(menu).getByText('持仓'));
+    expect(onAdd).toHaveBeenCalledWith(
+      expect.objectContaining({ symbol: 'sh600000', name: '浦发银行' }),
+      '持仓'
+    );
+    expect(onView).not.toHaveBeenCalled();
+    expect(screen.queryByTestId('screen-add-menu-sh600000')).not.toBeInTheDocument();
+  });
+
+  it('已在自选的行显示「已观察」徽章、无「＋」；未加入的行仍有「＋」', () => {
+    render(
+      <ScreenerResults
+        rows={marketRows}
+        onView={() => {}}
+        mode="market"
+        onAdd={() => {}}
+        watchGroups={{ '600000': '观察' }}
+      />
+    );
+    expect(screen.getByTestId('screen-added-sh600000')).toHaveTextContent('已观察');
+    expect(screen.queryByTestId('screen-add-sh600000')).not.toBeInTheDocument();
+    expect(screen.getByTestId('screen-add-sz000001')).toBeInTheDocument();
+  });
+
+  it('点结果行（onView）收起已展开的添加菜单', async () => {
+    const user = userEvent.setup();
+    const onView = vi.fn();
+    render(<ScreenerResults rows={marketRows} onView={onView} mode="market" onAdd={() => {}} />);
+    await user.click(screen.getByTestId('screen-add-sh600000'));
+    expect(screen.getByTestId('screen-add-menu-sh600000')).toBeInTheDocument();
+    await user.click(screen.getByTestId('screen-row-sz000001'));
+    expect(screen.queryByTestId('screen-add-menu-sh600000')).not.toBeInTheDocument();
+    expect(onView).toHaveBeenCalledWith('sz000001');
+  });
+
+  it('onAdd 抛错时不向上扩散（页面横幅负责提示）', async () => {
+    const user = userEvent.setup();
+    const onAdd = vi.fn(() => Promise.reject(new Error('写入失败：令牌无效')));
+    render(<ScreenerResults rows={marketRows} onView={() => {}} mode="market" onAdd={onAdd} />);
+    await user.click(screen.getByTestId('screen-add-sh600000'));
+    await user.click(screen.getByTestId('screen-add-menu-sh600000').querySelector('.grp-btn')!);
+    expect(onAdd).toHaveBeenCalled();
+    // 行保持可重试状态（菜单已收起，「＋」回来）
+    expect(await screen.findByTestId('screen-add-sh600000')).toBeInTheDocument();
+  });
+});

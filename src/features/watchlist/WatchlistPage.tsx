@@ -53,6 +53,11 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   const { quotes: extraQuotes } = useQuotes(extraSelected);
 
   const groups = useMemo(() => groupsOf(stocks), [stocks]);
+  // 市场模式结果行行内添加：自选分组映射（bareSymbol → 组名），命中即显示「已xx」不重复加
+  const watchGroups = useMemo(
+    () => Object.fromEntries(stocks.map((s) => [bareSymbol(s.symbol), s.group])),
+    [stocks]
+  );
   const visible = useMemo(
     () => (filter === ALL ? stocks : stocks.filter((s) => s.group === filter)),
     [stocks, filter]
@@ -225,6 +230,14 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
             emptyHint={
               scope === 'market' ? '点「开始筛选」扫描沪深A股（约 1–3 分钟，可随时停止）' : undefined
             }
+            onAdd={
+              scope === 'market'
+                ? async (stock, group) => {
+                    await add({ symbol: stock.symbol, name: stock.name, group });
+                  }
+                : undefined
+            }
+            watchGroups={scope === 'market' ? watchGroups : undefined}
           />
         ) : (
           <>

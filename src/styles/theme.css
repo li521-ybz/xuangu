@@ -298,6 +298,47 @@ button {
   color: var(--up);
   background: rgba(226, 60, 60, 0.08);
 }
+/* 市场模式结果行行内「＋」：加自选（用户 2026-10-18 拍板 A 方案，与行删 ✕ 同款圆形轻按钮） */
+.row-add {
+  border: none;
+  background: transparent;
+  color: var(--accent);
+  font-size: 15px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 50%;
+  flex: none;
+  cursor: pointer;
+  transition: color 0.15s, background 0.15s;
+}
+.row-add:hover {
+  background: rgba(0, 122, 255, 0.1);
+}
+/* 行内展开的分组二选一（观察/持仓），即点即加 */
+.row-add-menu {
+  display: inline-flex;
+  gap: 4px;
+  flex: none;
+}
+.row-add-menu .grp-btn {
+  border: 1px solid var(--accent);
+  background: var(--card);
+  color: var(--accent);
+  font-size: 11px;
+  font-weight: 600;
+  padding: 3px 8px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: background 0.15s;
+}
+.row-add-menu .grp-btn:hover {
+  background: rgba(0, 122, 255, 0.1);
+}
+/* 已在自选的结果行：中性「已xx」徽章（区别于买点状态徽章） */
+.result-badge.added {
+  color: var(--muted);
+  background: var(--fill);
+}
 
 /* ---------- 行情单元格（右侧价格） ---------- */
 .quote {

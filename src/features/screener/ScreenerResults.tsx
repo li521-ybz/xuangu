@@ -2,6 +2,12 @@
 // 排序：买点已到 → 候选 → 数据缺失（useScreener 已排）；点行回到该股图表。
 // 2026-10-18 市场模式：汇总加「已扫描 N 只」；数据缺失行聚合成一条（全市场扫描会有上百条，
 // 逐条列出淹没有效结果）；扫描中右栏显示进行中提示。
+// 2026-10-18 市场模式行内添加（用户拍板 A 方案）：hit/candidate 行右侧「＋」→ 行内展开
+// 「观察/持仓」即点即加、不弹层；已在自选的行显示「已xx」徽章不重复加；数据缺失行
+// （死票/陈旧/停牌）不给加——加进来只会多一行看不动的自选。
+import { useState } from 'react';
+import type { Stock } from '../../lib/types';
+import { bareSymbol } from '../../lib/symbol';
 import type { ScreenRow } from './useScreener';
 import type { ScreenerScope } from './ScreenerPanel';
 
@@ -12,6 +18,10 @@ interface Props {
   scanned?: number; // 市场模式：本轮已扫描只数
   running?: boolean;
   emptyHint?: string;
+  /** 市场模式行内添加：把该行股票加入指定分组；失败原因由页面错误横幅展示 */
+  onAdd?: (stock: Stock, group: string) => void | Promise<void>;
+  /** 自选分组映射（bareSymbol → 组名）：命中的行「＋」变「已xx」，不重复添加 */
+  watchGroups?: Record<string, string>;
 }
 
 /** 市场模式数据缺失行最多逐条展示这么多，其余聚合成一行 */
@@ -33,7 +43,82 @@ function metricLine(r: ScreenRow): string {
   return base + why;
 }
 
-export function ScreenerResults({ rows, onView, mode = 'watchlist', scanned, running, emptyHint }: Props) {
+/** 行内添加控件：已入自选 → 「已xx」徽章；展开中 → 观察/持仓 二选一；默认 → 「＋」 */
+function RowAdd({
+  stock,
+  open,
+  inGroup,
+  onOpen,
+  onAdd
+}: {
+  stock: Stock;
+  open: boolean;
+  inGroup?: string;
+  onOpen: () => void;
+  onAdd: (stock: Stock, group: string) => void | Promise<void>;
+}) {
+  if (inGroup) {
+    return (
+      <span className="result-badge added" data-testid={`screen-added-${stock.symbol}`}>
+        ✓ 已{inGroup}
+      </span>
+    );
+  }
+  if (open) {
+    return (
+      <span className="row-add-menu" data-testid={`screen-add-menu-${stock.symbol}`}>
+        <button
+          type="button"
+          className="grp-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            void onAdd(stock, '观察');
+          }}
+        >
+          观察
+        </button>
+        <button
+          type="button"
+          className="grp-btn"
+          onClick={(e) => {
+            e.stopPropagation();
+            void onAdd(stock, '持仓');
+          }}
+        >
+          持仓
+        </button>
+      </span>
+    );
+  }
+  return (
+    <button
+      type="button"
+      className="row-add"
+      aria-label={`添加 ${stock.name || stock.symbol} 到自选`}
+      data-testid={`screen-add-${stock.symbol}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onOpen();
+      }}
+    >
+      ＋
+    </button>
+  );
+}
+
+export function ScreenerResults({
+  rows,
+  onView,
+  mode = 'watchlist',
+  scanned,
+  running,
+  emptyHint,
+  onAdd,
+  watchGroups
+}: Props) {
+  // 哪一行的添加菜单展开中（行内轻交互，同屏只开一个）
+  const [openAdd, setOpenAdd] = useState<string | null>(null);
+
   const hit = rows.filter((r) => r.status === 'hit').length;
   const cand = rows.filter((r) => r.status === 'candidate').length;
   const miss = rows.filter((r) => r.status === 'no-data').length;
@@ -45,6 +130,17 @@ export function ScreenerResults({ rows, onView, mode = 'watchlist', scanned, run
       ? [...rows.filter((r) => r.status !== 'no-data'), ...missRows.slice(0, MISS_DETAIL_MAX)]
       : rows;
   const missHidden = missRows.length - Math.min(missRows.length, MISS_DETAIL_MAX);
+
+  const canAdd = mode === 'market' && !!onAdd;
+
+  const handleAdd = async (stock: Stock, group: string) => {
+    setOpenAdd(null);
+    try {
+      await onAdd?.(stock, group);
+    } catch {
+      // 失败原因由 useWatchlist.add 写入页面错误横幅，此处不重复弹错、不关菜单外状态
+    }
+  };
 
   return (
     <div className="screener-results" data-testid="screener-results">
@@ -65,13 +161,25 @@ export function ScreenerResults({ rows, onView, mode = 'watchlist', scanned, run
               <li
                 key={r.stock.id}
                 className="stock-item"
-                onClick={() => onView(r.stock.symbol)}
+                onClick={() => {
+                  setOpenAdd(null);
+                  onView(r.stock.symbol);
+                }}
                 data-testid={`screen-row-${r.stock.symbol}`}
               >
                 <span className="si-text">
                   <span className="si-name">{r.stock.name || r.stock.symbol}</span>
                   <span className="si-code">{metricLine(r)}</span>
                 </span>
+                {canAdd && r.status !== 'no-data' && (
+                  <RowAdd
+                    stock={r.stock}
+                    open={openAdd === r.stock.symbol}
+                    inGroup={watchGroups?.[bareSymbol(r.stock.symbol)]}
+                    onOpen={() => setOpenAdd(r.stock.symbol)}
+                    onAdd={handleAdd}
+                  />
+                )}
                 <span className={`result-badge ${r.status}`}>{BADGE[r.status]}</span>
               </li>
             ))}
