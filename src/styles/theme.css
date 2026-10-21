@@ -850,3 +850,912 @@ button {
     animation: none;
   }
 }
+
+/* ==========================================================================
+   股票看盘工作台 · 六模块外壳与新模块样式（2026-10-21）
+   沿用上面的 iOS 浅色令牌：红涨绿跌、卡片圆角 16、毛玻璃顶栏。
+   ========================================================================== */
+
+/* ---------- 顶部模块导航 ---------- */
+.wb-topbar {
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 10px 18px;
+  background: rgba(242, 242, 247, 0.86);
+  -webkit-backdrop-filter: saturate(180%) blur(20px);
+  backdrop-filter: saturate(180%) blur(20px);
+  border-bottom: 1px solid var(--line);
+}
+
+.wb-brand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+.wb-brand-mark {
+  width: 10px;
+  height: 18px;
+  border-radius: 3px;
+  background: linear-gradient(180deg, var(--up) 0%, var(--up) 50%, var(--down) 50%, var(--down) 100%);
+}
+.wb-brand-title {
+  margin: 0;
+  font-size: 17px;
+  font-weight: 800;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+}
+
+.wb-tabs {
+  display: flex;
+  gap: 4px;
+  overflow-x: auto;
+  scrollbar-width: none;
+  flex: 1 1 auto;
+}
+.wb-tabs::-webkit-scrollbar {
+  display: none;
+}
+.wb-tab {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 14px;
+  font-weight: 600;
+  padding: 7px 13px;
+  border-radius: 10px;
+  white-space: nowrap;
+  transition: background 0.18s var(--ease), color 0.18s var(--ease);
+}
+.wb-tab:hover {
+  background: var(--fill);
+  color: var(--fg);
+}
+.wb-tab.active {
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
+
+.wb-topbar-tools {
+  flex: 0 0 auto;
+  display: flex;
+  gap: 6px;
+}
+
+.wb-main {
+  padding: 16px 18px 40px;
+}
+
+.wb-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 14px;
+  flex-wrap: wrap;
+}
+.wb-page-head h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+.wb-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* 工作台内的自选页：顶栏已 sticky，内部标题条不再吸顶 */
+.workbench .watchlist .navbar {
+  position: static;
+  background: transparent;
+  padding-left: 0;
+  padding-right: 0;
+}
+
+/* ---------- 通用卡片 / 文本 ---------- */
+.mk-card {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 16px;
+}
+.mk-card-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+.mk-card-head h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.mk-card-foot {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.mk-muted {
+  color: var(--muted);
+  font-size: 12px;
+}
+.mk-empty {
+  color: var(--muted);
+  font-size: 13px;
+  padding: 12px 0;
+  text-align: center;
+  list-style: none;
+}
+
+/* 数字统一等宽，表格不跳位 */
+.num {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- 模块① 看盘总览 ---------- */
+.mk-page-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 14px;
+  gap: 12px;
+}
+.mk-page-head h2 {
+  margin: 0;
+  font-size: 26px;
+  font-weight: 800;
+  letter-spacing: -0.4px;
+}
+.mk-head-tools {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.mk-index-strip {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.mk-index {
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.mk-index-name {
+  font-size: 12px;
+  color: var(--muted);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-index-price {
+  font-size: 20px;
+  font-weight: 700;
+  letter-spacing: -0.3px;
+}
+.mk-index-pct {
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.mk-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 0.95fr);
+  gap: 14px;
+  align-items: start;
+}
+
+/* 涨跌比例条 */
+.mk-breadth-bar {
+  display: flex;
+  height: 10px;
+  border-radius: 5px;
+  overflow: hidden;
+  background: var(--fill);
+  margin-bottom: 12px;
+}
+.mk-breadth-bar .seg {
+  display: block;
+  height: 100%;
+  transition: width 0.4s var(--ease);
+}
+.mk-breadth-bar .seg.up {
+  background: var(--up);
+}
+.mk-breadth-bar .seg.flat {
+  background: var(--muted);
+  opacity: 0.5;
+}
+.mk-breadth-bar .seg.down {
+  background: var(--down);
+}
+
+.mk-breadth-nums {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+  margin-bottom: 14px;
+}
+.mk-num-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 8px 0;
+  background: var(--fill);
+  border-radius: 10px;
+}
+.mk-num-item .k {
+  font-size: 11px;
+  color: var(--muted);
+}
+.mk-num-item .v {
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.mk-metric-grid {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 8px;
+  margin-bottom: 16px;
+}
+.mk-metric {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+}
+.mk-metric .k {
+  font-size: 11px;
+  color: var(--muted);
+}
+.mk-metric .v {
+  font-size: 15px;
+  font-weight: 700;
+}
+
+/* 涨跌分布柱状 */
+.mk-dist {
+  display: grid;
+  grid-template-columns: repeat(9, 1fr);
+  gap: 4px;
+  align-items: end;
+  height: 96px;
+  padding-top: 4px;
+}
+.mk-dist-col {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: center;
+  height: 100%;
+  gap: 2px;
+}
+.mk-dist-count {
+  font-size: 10px;
+  color: var(--muted);
+}
+.mk-dist-bar {
+  width: 70%;
+  border-radius: 3px 3px 0 0;
+  min-height: 2px;
+  transition: height 0.4s var(--ease);
+}
+.mk-dist-bar.up {
+  background: var(--up);
+  opacity: 0.85;
+}
+.mk-dist-bar.down {
+  background: var(--down);
+  opacity: 0.85;
+}
+.mk-dist-bar.flat {
+  background: var(--muted);
+  opacity: 0.6;
+}
+.mk-dist-label {
+  font-size: 9px;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* 排行榜 */
+.mk-rank-tabs {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 10px;
+  flex-wrap: wrap;
+}
+.mk-rank-tab {
+  border: none;
+  background: var(--fill);
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 600;
+  padding: 5px 10px;
+  border-radius: 8px;
+}
+.mk-rank-tab.active {
+  background: var(--accent);
+  color: #fff;
+}
+.mk-rank-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+.mk-rank-row {
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) 62px 74px;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  border: none;
+  background: transparent;
+  padding: 7px 4px;
+  border-radius: 8px;
+  text-align: left;
+}
+.mk-rank-row:hover {
+  background: var(--fill);
+}
+.mk-rank-no {
+  font-size: 11px;
+  color: var(--muted);
+  text-align: center;
+}
+.mk-rank-name {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+.mk-rank-name .nm {
+  font-size: 13px;
+  font-weight: 600;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.mk-rank-name .cd {
+  font-size: 10px;
+  color: var(--muted);
+}
+.mk-rank-price,
+.mk-rank-metric {
+  font-size: 13px;
+  font-weight: 600;
+  text-align: right;
+}
+
+/* ---------- 模块③⑤ 汇总指标（持仓 / 模拟盘共用） ---------- */
+.pf-summary {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 14px;
+}
+.pf-metric {
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+.pf-metric .k {
+  font-size: 11px;
+  color: var(--muted);
+}
+.pf-metric .v {
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.pf-metric .sub {
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 4px;
+  opacity: 0.85;
+}
+
+/* ---------- 表格（持仓 / 模拟盘 / 回测通用风格） ---------- */
+.pf-table,
+.sim-table,
+.bt-table {
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 6px 12px 10px;
+  overflow-x: auto;
+}
+.pf-thead,
+.pf-row {
+  display: grid;
+  grid-template-columns: 1.7fr 0.8fr 0.8fr 0.8fr 0.85fr 1.05fr 1.15fr 1fr 0.7fr 42px;
+  align-items: center;
+  gap: 8px;
+  min-width: 860px;
+}
+.pf-flow .pf-thead,
+.pf-flow .pf-row {
+  grid-template-columns: 0.95fr 1.6fr 0.6fr 0.8fr 0.8fr 0.75fr 1fr 42px;
+  min-width: 720px;
+}
+.pf-thead {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  position: sticky;
+  top: 0;
+}
+.pf-row {
+  padding: 9px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.pf-row:last-child {
+  border-bottom: none;
+}
+.pf-row:hover {
+  background: rgba(118, 118, 128, 0.05);
+}
+.pf-thead .num,
+.pf-row .num {
+  text-align: right;
+}
+.pf-name {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  border: none;
+  background: transparent;
+  padding: 0;
+  min-width: 0;
+  text-align: left;
+}
+.pf-name .nm {
+  font-weight: 600;
+  font-size: 13px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+}
+.pf-name .cd {
+  font-size: 10px;
+  color: var(--muted);
+}
+.pf-name.static {
+  cursor: default;
+}
+.pf-row .op {
+  text-align: right;
+}
+.row-sell {
+  border: none;
+  background: var(--fill);
+  color: var(--down);
+  font-size: 12px;
+  font-weight: 700;
+  line-height: 1;
+  min-width: 28px;
+  height: 24px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0 8px;
+  border-radius: 6px;
+}
+.row-sell:hover {
+  background: var(--down);
+  color: #fff;
+}
+.pf-clear {
+  margin-top: 10px;
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--error);
+  font-size: 12px;
+  padding: 6px 12px;
+  border-radius: 8px;
+}
+.pf-clear:hover {
+  background: rgba(215, 0, 21, 0.06);
+}
+.pf-equity {
+  margin-top: 14px;
+}
+
+/* ---------- 模块⑤ 模拟盘 ---------- */
+.sim-grid {
+  display: grid;
+  grid-template-columns: 300px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+  margin-bottom: 14px;
+}
+.sim-order {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.sim-order label,
+.bt-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  font-size: 11px;
+  color: var(--muted);
+}
+.sim-order input,
+.bt-field input,
+.bt-field select {
+  width: 100%;
+  font: inherit;
+  font-size: 13px;
+  color: var(--fg);
+  background: var(--fill);
+  border: 1px solid transparent;
+  border-radius: 9px;
+  padding: 8px 10px;
+  outline: none;
+  min-width: 0;
+}
+.sim-order input:focus,
+.bt-field input:focus,
+.bt-field select:focus {
+  border-color: var(--accent);
+  background: var(--card);
+}
+.seg-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 4px;
+  background: var(--fill);
+  border-radius: 10px;
+  padding: 3px;
+}
+.seg-pair button {
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 600;
+  padding: 7px 0;
+  border-radius: 8px;
+}
+.seg-pair button.active.buy {
+  background: var(--up);
+  color: #fff;
+}
+.seg-pair button.active.sell {
+  background: var(--down);
+  color: #fff;
+}
+.seg-pair button.active:not(.buy):not(.sell) {
+  background: var(--card);
+  color: var(--fg);
+  box-shadow: var(--shadow);
+}
+.sim-quick {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 6px;
+}
+.sim-quick button {
+  border: 1px solid var(--line);
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  padding: 5px 0;
+  border-radius: 7px;
+}
+.sim-quick button:hover {
+  background: var(--fill);
+  color: var(--fg);
+}
+.sim-submit {
+  border: none;
+  border-radius: 10px;
+  padding: 11px 0;
+  font-size: 14px;
+  font-weight: 700;
+  color: #fff;
+  background: var(--accent);
+}
+.sim-submit.buy {
+  background: var(--up);
+}
+.sim-submit.sell {
+  background: var(--down);
+}
+.form-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.sim-lists {
+  min-height: 220px;
+}
+.sim-table {
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+  margin-top: 10px;
+}
+.sim-thead,
+.sim-row {
+  display: grid;
+  grid-template-columns: 1.6fr 0.75fr 0.75fr 0.8fr 0.8fr 1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  min-width: 620px;
+}
+/* 持仓 6 列 / 委托 5 列 / 成交 7 列，用通用模板兼容 */
+.sim-thead {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 0 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+.sim-row {
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+  font-size: 13px;
+}
+.sim-row:last-child {
+  border-bottom: none;
+}
+.sim-thead .num,
+.sim-row .num {
+  text-align: right;
+}
+.tool-btn.danger {
+  color: var(--error);
+}
+
+/* ---------- 模块⑥ 回测 ---------- */
+.bt-config {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin-bottom: 14px;
+}
+.bt-row {
+  display: flex;
+  align-items: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.bt-field {
+  min-width: 140px;
+}
+.bt-field.small {
+  min-width: 96px;
+  flex: 0 0 auto;
+}
+.bt-desc {
+  padding-bottom: 9px;
+}
+.bt-params {
+  display: flex;
+  gap: 10px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  padding-top: 10px;
+  border-top: 1px solid var(--line);
+}
+.bt-run {
+  margin-left: auto;
+}
+.bt-charts {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  margin: 14px 0;
+}
+.bt-thead,
+.bt-trow {
+  display: grid;
+  grid-template-columns: 0.95fr 0.75fr 0.95fr 0.75fr 0.75fr 0.6fr 1.1fr 1fr;
+  align-items: center;
+  gap: 8px;
+  min-width: 760px;
+}
+.bt-thead {
+  font-size: 11px;
+  color: var(--muted);
+  padding: 4px 0 6px;
+  border-bottom: 1px solid var(--line);
+}
+.bt-trow {
+  font-size: 12.5px;
+  padding: 8px 0;
+  border-bottom: 1px solid var(--line);
+}
+.bt-trow:last-child {
+  border-bottom: none;
+}
+.bt-thead .num,
+.bt-trow .num {
+  text-align: right;
+}
+.bt-reason {
+  color: var(--muted);
+  font-size: 11px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.bt-disclaimer {
+  margin-top: 12px;
+  font-size: 11px;
+  color: var(--muted);
+  line-height: 1.6;
+}
+
+/* ---------- 模块④ 选股页 ---------- */
+.screen-grid {
+  display: grid;
+  grid-template-columns: 340px minmax(0, 1fr);
+  gap: 14px;
+  align-items: start;
+}
+.screen-results-panel {
+  min-width: 0;
+  background: var(--card);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 14px 16px;
+  min-height: 420px;
+}
+
+/* ---------- 曲线图 ---------- */
+.equity-chart {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+.eq-tick {
+  font-size: 9px;
+  fill: #8e8e93;
+}
+.eq-axis {
+  font-size: 10px;
+  fill: #8e8e93;
+}
+
+/* ---------- 加载 / 空态 ---------- */
+.mk-loading {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 40px 0;
+  justify-content: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--line);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: wb-spin 0.8s linear infinite;
+}
+.spin {
+  display: inline-block;
+  animation: wb-spin 0.8s linear infinite;
+}
+@keyframes wb-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.mk-error-card {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  background: rgba(215, 0, 21, 0.06);
+  border: 1px solid rgba(215, 0, 21, 0.18);
+  border-radius: 12px;
+  padding: 12px 14px;
+  margin-bottom: 14px;
+  font-size: 13px;
+  color: var(--error);
+  flex-wrap: wrap;
+}
+.mk-error-card p {
+  margin: 0;
+}
+
+/* ---------- 响应式 ---------- */
+@media (max-width: 1100px) {
+  .mk-index-strip {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .mk-grid,
+  .bt-charts {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .pf-summary {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  .sim-grid,
+  .screen-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 720px) {
+  .wb-topbar {
+    padding: 8px 12px;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .wb-brand-title {
+    font-size: 15px;
+  }
+  .wb-main {
+    padding: 12px 12px 32px;
+  }
+  .mk-index-strip {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .pf-summary {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .mk-metric-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+  .mk-page-head h2,
+  .wb-page-head h2 {
+    font-size: 22px;
+  }
+  .mk-dist {
+    height: 80px;
+  }
+}
+
+/* 文字型工具按钮（工作台新增：录入交易 / 重置账户 / 加载K线 等），
+   默认 .tool-btn 是 36px 圆形图标按钮，塞不进文字，这里放开宽度。 */
+.tool-btn.wide {
+  width: auto;
+  min-width: 36px;
+  height: 34px;
+  padding: 0 14px;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  white-space: nowrap;
+}
+.tool-btn-primary.wide {
+  font-size: 13px;
+  box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
+}

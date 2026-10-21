@@ -2,7 +2,7 @@
 import type { StockRepository } from './repository';
 import { InMemoryStockRepository, LocalStorageStockRepository } from './repository';
 import { getSupabaseClient } from './supabaseClient';
-import { SupabaseStockRepository } from './supabaseRepo';
+import { SupabaseStockRepository, type SupabaseLike } from './supabaseRepo';
 import { createGistRepositoryFromStorage } from './gistRepo';
 
 export function createStockRepository(): StockRepository {
@@ -11,7 +11,8 @@ export function createStockRepository(): StockRepository {
   const client = getSupabaseClient();
   if (client) {
     const userId = (import.meta.env?.VITE_SUPABASE_USER_ID as string) || 'local';
-    return new SupabaseStockRepository(client, userId);
+    // 官方 SupabaseClient 的泛型（schema/relations）比这里的结构化接口更严，运行期完全兼容
+    return new SupabaseStockRepository(client as unknown as SupabaseLike, userId);
   }
   // 无令牌：默认本地持久化（刷新不丢）；测试可改用内存实现
   if (typeof localStorage !== 'undefined') return new LocalStorageStockRepository();

@@ -11,9 +11,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg'],
       manifest: {
-        name: '选股 · 股票看盘',
-        short_name: '选股',
-        description: '自用股票看盘 PWA：自选股列表 + 行情看板 + 分时日K同屏',
+        name: '股票看盘工作台',
+        short_name: '看盘',
+        description: '个人 A 股看盘工作台：看盘总览 / 自选 / 持仓 / 选股 / 模拟盘 / 策略回测',
         theme_color: '#ffffff',
         background_color: '#ffffff',
         display: 'standalone',

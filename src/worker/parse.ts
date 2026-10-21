@@ -128,3 +128,58 @@ export function parseTencentMinute(jsonText: string): IntradayPoint[] {
   }
   return out;
 }
+
+/**
+ * 腾讯行情的「全市场统计」扩展解析：除了 Quote 常规字段，再取成交额 / 换手率 / 涨跌停价。
+ * 字段位次按 2026-10-21 真实返回核对（sh600000）：
+ *   [6] 成交量(手) [30] 时间 [31] 涨跌额 [32] 涨跌幅% [33] 最高 [34] 最低
+ *   [37] 成交额(万元) [38] 换手率% [44] 流通市值(亿) [45] 总市值(亿) [47] 涨停价 [48] 跌停价
+ * 停牌/未开盘个股 [3]/[4] 可能为空或 0，此时丢弃（不计入涨跌家数）。
+ */
+export interface TencentMarketRow {
+  symbol: string;
+  code: string;
+  name: string;
+  price: number;
+  prevClose: number;
+  changePct: number;
+  amount: number; // 元
+  turnover: number; // %，取不到为 NaN
+  limitUp: number; // 涨停价，取不到为 0
+  limitDown: number; // 跌停价，取不到为 0
+}
+
+export function parseTencentMarketLine(line: string): TencentMarketRow | null {
+  const m = line.match(/v_(\w+)="([^"]*)"/);
+  if (!m) return null;
+  const symbol = m[1];
+  const f = m[2].split('~');
+  if (f.length < 39) return null;
+  const price = Number(f[3]);
+  const prevClose = Number(f[4]);
+  if (!isFinite(price) || !isFinite(prevClose) || price <= 0 || prevClose <= 0) return null;
+  const changePct = numOr(f[32], ((price - prevClose) / prevClose) * 100);
+  const amountWan = Number(f[37]); // 万元
+  const turnover = Number(f[38]);
+  return {
+    symbol,
+    code: f[2] || symbol.replace(/^[a-z]{2}/, ''),
+    name: f[1] || symbol,
+    price,
+    prevClose,
+    changePct,
+    amount: isFinite(amountWan) ? amountWan * 1e4 : 0,
+    turnover: isFinite(turnover) ? turnover : NaN,
+    limitUp: numOr(f[47], 0),
+    limitDown: numOr(f[48], 0)
+  };
+}
+
+export function parseTencentMarketBatch(raw: string): TencentMarketRow[] {
+  return raw
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+    .map(parseTencentMarketLine)
+    .filter((r): r is TencentMarketRow => r !== null);
+}

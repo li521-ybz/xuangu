@@ -1,20 +1,14 @@
-// 模块① 自选看板页：三栏终端布局（2026-10-17 起，按用户手绘图）
-// 宽屏：左竖排分组导航 + 中股票列表列 + 右主区「信息条 → 图表（children 注入模块③）」
-// 窄屏：纵向堆叠（分组横排 chips → 列表 → 主区）
-// 列表行显示名称+代码（用户 2026-10-17 拍板）；信息条只显示当前选中股票的 代码/现价/涨跌幅
-// 模块④ 条件选股（2026-10-17）：左栏底部「条件选股」入口，进入后中栏变条件面板、右栏变结果列表。
-// 2026-10-18 选股范围扩大到沪深A股：中栏顶部「自选股/沪深A股」分段，市场模式扫东财+腾讯枚举名单
-// （不含北交所，用户 2026-10-18 拍板），手动开扫、进度带预计剩余、可停止。
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
+// 模块② 自选：三栏终端布局（左分组导航 / 中股票列表 / 右信息条+图表）
+//
+// 2026-10-21 拆分：条件选股（模块④）从本页迁出为独立 Tab，本页只管自选列表与图表，
+// 左栏不再有「条件选股」入口（避免两个入口指向同一功能）。
+// 宽屏三栏并排；窄屏纵向堆叠（分组横排 chips → 列表 → 主区）。
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { StockRepository } from '../../lib/repository';
 import { bareSymbol } from '../../lib/symbol';
 import { groupsOf, useWatchlist } from './useWatchlist';
 import { AddStockModal } from './AddStockModal';
 import { useQuotes } from '../quotes/useQuotes';
-import { ScreenerPanel, type ScreenerScope } from '../screener/ScreenerPanel';
-import { ScreenerResults } from '../screener/ScreenerResults';
-import { useScreener, type ScreenerOptions } from '../screener/useScreener';
-import { useMarketRoster } from '../screener/useMarketRoster';
 import { pctText, quoteClass } from '../../lib/format';
 
 interface Props {
@@ -22,13 +16,12 @@ interface Props {
   selected?: string | null;
   onSelect?: (symbol: string | null) => void;
   onOpenSettings?: () => void;
-  children?: ReactNode; // 图表区插槽：App 组合注入 <ChartPage>，模块边界不互相 import
+  children?: ReactNode; // 图表区插槽：App 组合注入 <ChartPage>
 }
 
 const ALL = '全部';
-/** 两大主分组：观察 ↔ 持仓 支持一键互转（用户 2026-10-18 反馈：⇄ 应直接转移，而非只弹文字菜单） */
+/** 两大主分组：观察 ↔ 持仓 支持一键互转 */
 const MAIN_GROUPS = ['观察', '持仓'];
-/** 转移目标组：观察 → 持仓、持仓 → 观察（自定义组落到「观察」） */
 function moveTarget(group: string): string {
   return group === '持仓' ? '观察' : '持仓';
 }
@@ -37,31 +30,18 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   const { stocks, loading, error, load, add, remove, setGroup } = useWatchlist(repo);
   const [filter, setFilter] = useState<string>(ALL);
   const [adding, setAdding] = useState(false);
-  const [screener, setScreener] = useState(false);
-  const [scope, setScope] = useState<ScreenerScope>('watchlist');
-  // 市场模式名单：仅切到「沪深A股」才拉取（active），缓存按天失效
-  const roster = useMarketRoster(screener && scope === 'market');
-  const screenerStocks = scope === 'market' ? roster.stocks : stocks;
-  const screenerOpts = useMemo<ScreenerOptions>(
-    () => (scope === 'market' ? { bars: 60, concurrency: 8, scanHost: true } : {}),
-    [scope]
-  );
-  const screenerCtl = useScreener(screenerStocks, screenerOpts);
-  const autoRan = useRef(false);
+  const [movingId, setMovingId] = useState<string | null>(null);
+  const [toast, setToast] = useState<string | null>(null);
 
   const symbols = useMemo(() => stocks.map((s) => s.symbol), [stocks]);
   const { quotes, degraded, refresh } = useQuotes(symbols);
-  // 选中股票不在自选股里时（如全市场扫描结果行），单独补查一次报价，信息条不显示「—」
+  // 选中股票不在自选里时（从看盘排行榜跳转过来）补查一次报价
   const extraSelected = useMemo(
     () => (selected && !symbols.includes(selected) ? [selected] : []),
     [selected, symbols]
   );
   const { quotes: extraQuotes } = useQuotes(extraSelected);
 
-  // 行内转移菜单展开中的行 id（仅自定义分组用；观察/持仓为一键互转，不走菜单）
-  const [movingId, setMovingId] = useState<string | null>(null);
-  const [toast, setToast] = useState<string | null>(null);
-  // 转移分组：写入仓库并更新列表；成功弹一句提示（否则「全部」视图下看不出转没转）
   const handleMove = async (id: string, group: string) => {
     const stock = stocks.find((s) => s.id === id);
     setMovingId(null);
@@ -69,10 +49,10 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
       await setGroup(id, group);
       setToast(`已将「${stock?.name || stock?.symbol || '该股'}」转移到${group}`);
     } catch {
-      // 失败原因已由 useWatchlist 写入页面错误横幅
+      // 失败原因由 useWatchlist 写入页面错误横幅
     }
   };
-  // toast 自动消失
+
   useEffect(() => {
     if (!toast) return;
     const t = setTimeout(() => setToast(null), 2000);
@@ -80,20 +60,12 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
   }, [toast]);
 
   const groups = useMemo(() => groupsOf(stocks), [stocks]);
-  // 市场模式结果行行内添加：自选分组映射（bareSymbol → 组名），命中即显示「已xx」不重复加
-  const watchGroups = useMemo(
-    () => Object.fromEntries(stocks.map((s) => [bareSymbol(s.symbol), s.group])),
-    [stocks]
-  );
   const visible = useMemo(
     () => (filter === ALL ? stocks : stocks.filter((s) => s.group === filter)),
     [stocks, filter]
   );
 
-  // 选中股票的实时行情（信息条用；与列表同源，不重复请求）
-  const sq = selected
-    ? quotes[bareSymbol(selected)] ?? extraQuotes[bareSymbol(selected)]
-    : undefined;
+  const sq = selected ? quotes[bareSymbol(selected)] ?? extraQuotes[bareSymbol(selected)] : undefined;
   const scls = sq ? quoteClass(sq) : 'flat';
 
   const onRefresh = () => {
@@ -101,40 +73,12 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
     void refresh();
   };
 
-  // 切换选股范围：清空上一轮结果，避免两种范围的行混在一起
-  const switchScope = (next: ScreenerScope) => {
-    setScope(next);
-    screenerCtl.reset();
-  };
-
-  const rosterLine =
-    roster.stocks.length > 0
-      ? `沪深A股 ${roster.stocks.length.toLocaleString('zh-CN')} 只 · ${(roster.date ?? '').slice(5)} 更新（${
-          roster.source === 'eastmoney' ? '东财' : '腾讯枚举'
-        }）`
-      : null;
-
-  // 默认选中：加载完成后若无有效选中（首次进入/选中项被删），选中当前筛选第一个，
-  // 图表区与信息条立即可见（三栏终端体验：进来就能看图，无需先点行）。
-  // 选股模式下不自动选中（右栏被结果列表占用）。
+  // 默认选中：加载完若无有效选中，选中当前筛选第一个，进来就能看图
   useEffect(() => {
-    if (loading || screener) return;
+    if (loading) return;
     const exists = !!selected && stocks.some((s) => s.symbol === selected);
     if (!exists && visible[0]) onSelect?.(visible[0].symbol);
-  }, [loading, screener, selected, stocks, visible, onSelect]);
-
-  // 进入选股模式且自选非空时自动筛一次（每次进入只跑一轮；改条件/加股票后手动点「开始筛选」）。
-  // 市场模式（沪深A股）不自动跑：5000 只一轮几十 MB 流量，必须用户手动发起。
-  useEffect(() => {
-    if (!screener || scope !== 'watchlist') {
-      autoRan.current = false;
-      return;
-    }
-    if (autoRan.current || screenerCtl.running || screenerCtl.rows.length > 0) return;
-    if (stocks.length === 0) return;
-    autoRan.current = true;
-    void screenerCtl.run();
-  }, [screener, scope, screenerCtl, stocks.length]);
+  }, [loading, selected, stocks, visible, onSelect]);
 
   return (
     <section className="watchlist" aria-label="自选股看板">
@@ -143,51 +87,18 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
           <button
             key={g}
             type="button"
-            className={!screener && g === filter ? 'tab active' : 'tab'}
-            aria-pressed={!screener && g === filter}
-            onClick={() => {
-              setFilter(g);
-              setScreener(false);
-            }}
+            className={g === filter ? 'tab active' : 'tab'}
+            aria-pressed={g === filter}
+            onClick={() => setFilter(g)}
           >
             {g}
           </button>
         ))}
-        <button
-          type="button"
-          className={`tab tab-screener${screener ? ' active' : ''}`}
-          aria-label="条件选股"
-          aria-pressed={screener}
-          data-testid="screener-entry"
-          onClick={() => setScreener((v) => !v)}
-        >
-          条件选股
-        </button>
       </nav>
 
-      {/* 中栏：股票列表（名称 + 代码，点行切换图表股票）；选股模式下为条件面板 */}
+      {/* 中栏：股票列表（名称 + 代码，点行切换图表股票） */}
       <div className="stock-col">
-        {screener ? (
-          <ScreenerPanel
-            toggles={screenerCtl.toggles}
-            onToggle={screenerCtl.toggle}
-            onRun={() => void screenerCtl.run()}
-            running={screenerCtl.running}
-            progress={screenerCtl.progress}
-            total={screenerStocks.length}
-            scope={scope}
-            onScopeChange={switchScope}
-            rosterLine={rosterLine}
-            rosterLoading={roster.loading}
-            rosterError={roster.error}
-            rosterNote={roster.note}
-            onRosterRefresh={roster.refresh}
-            onCancel={screenerCtl.cancel}
-            emptyHint={scope === 'market' ? '暂无可用名单，请刷新重试' : undefined}
-            priceRange={screenerCtl.priceRange}
-            onPriceRangeChange={screenerCtl.setPriceRange}
-          />
-        ) : !loading && visible.length === 0 ? (
+        {!loading && visible.length === 0 ? (
           <p className="empty">暂无自选，点 ＋ 添加</p>
         ) : (
           <ul className="stock-list" aria-label="自选股列表">
@@ -197,7 +108,7 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                 className={`stock-item${selected === s.symbol ? ' selected' : ''}`}
                 aria-current={selected === s.symbol ? 'true' : undefined}
                 onClick={() => {
-                  setMovingId(null); // 点行收起未确认的转移菜单
+                  setMovingId(null);
                   onSelect?.(s.symbol);
                 }}
                 data-testid={`row-${s.symbol}`}
@@ -207,7 +118,6 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                   <span className="si-code">{s.symbol}</span>
                 </span>
                 {movingId === s.id ? (
-                  // 自定义分组：行内展开除当前组外的其他组，即点即转（不弹层）
                   <span className="row-add-menu" data-testid={`move-menu-${s.symbol}`}>
                     {groups
                       .filter((g) => g !== s.group)
@@ -232,16 +142,14 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
                     aria-label={`转移 ${s.name || s.symbol} 到${
                       MAIN_GROUPS.includes(s.group) ? moveTarget(s.group) : '其他分组'
                     }`}
-                    title={
-                      MAIN_GROUPS.includes(s.group) ? `一键转移到${moveTarget(s.group)}` : '转移分组'
-                    }
+                    title={MAIN_GROUPS.includes(s.group) ? `一键转移到${moveTarget(s.group)}` : '转移分组'}
                     data-testid={`move-${s.symbol}`}
                     onClick={(e) => {
                       e.stopPropagation();
                       if (MAIN_GROUPS.includes(s.group)) {
-                        void handleMove(s.id, moveTarget(s.group)); // 观察 ↔ 持仓 一键互转
+                        void handleMove(s.id, moveTarget(s.group));
                       } else {
-                        setMovingId(s.id); // 自定义组：展开菜单选目标
+                        setMovingId(s.id);
                       }
                     }}
                   >
@@ -264,26 +172,27 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
         )}
       </div>
 
-      {/* 右主区：导航栏 + 信息条 + 图表区；选股模式下为结果列表 */}
+      {/* 右主区：标题条 + 信息条 + 图表区 */}
       <div className="board-main">
         <header className="navbar">
-          <h2 className="navbar-title">{screener ? '条件选股' : '自选股'}</h2>
+          <h2 className="navbar-title">自选股</h2>
           <div className="navbar-tools">
-            {!screener && (
-              <>
-                <button className="tool-btn" aria-label="刷新" title="刷新" onClick={onRefresh}>
-                  ↻
-                </button>
-                {onOpenSettings && (
-                  <button className="tool-btn" aria-label="设置" title="设置" onClick={onOpenSettings}>
-                    ⚙
-                  </button>
-                )}
-                <button className="tool-btn tool-btn-primary" aria-label="添加自选" title="添加自选" onClick={() => setAdding(true)}>
-                  ＋
-                </button>
-              </>
+            <button className="tool-btn" aria-label="刷新" title="刷新" onClick={onRefresh}>
+              ↻
+            </button>
+            {onOpenSettings && (
+              <button className="tool-btn" aria-label="设置" title="设置" onClick={onOpenSettings}>
+                ⚙
+              </button>
             )}
+            <button
+              className="tool-btn tool-btn-primary"
+              aria-label="添加自选"
+              title="添加自选"
+              onClick={() => setAdding(true)}
+            >
+              ＋
+            </button>
           </div>
         </header>
 
@@ -291,67 +200,40 @@ export function WatchlistPage({ repo, selected, onSelect, onOpenSettings, childr
         {loading && <p className="loading">加载中…</p>}
         {degraded && <p className="error">行情部分降级（沿用上次数据）</p>}
 
-        {screener ? (
-          <ScreenerResults
-            rows={screenerCtl.rows}
-            onView={(symbol) => {
-              onSelect?.(symbol);
-              setScreener(false);
-            }}
-            mode={scope}
-            scanned={screenerCtl.scanned}
-            running={screenerCtl.running}
-            emptyHint={
-              scope === 'market' ? '点「开始筛选」扫描沪深A股（约 1–3 分钟，可随时停止）' : undefined
-            }
-            onAdd={
-              scope === 'market'
-                ? async (stock, group) => {
-                    await add({ symbol: stock.symbol, name: stock.name, group });
-                  }
-                : undefined
-            }
-            watchGroups={scope === 'market' ? watchGroups : undefined}
-          />
+        {selected ? (
+          <div className="quote-bar" data-testid="quote-bar">
+            <span className="qb-seg">
+              <span className="qb-label">股票代码</span>
+              <span className="qb-value">{selected}</span>
+            </span>
+            <span className="qb-seg">
+              <span className="qb-label">现价</span>
+              <span className={`qb-value num ${scls}`}>{sq ? sq.price.toFixed(2) : '—'}</span>
+            </span>
+            <span className="qb-seg">
+              <span className="qb-label">涨跌幅</span>
+              <span className={`qb-value num ${scls}`}>
+                {sq ? `${pctText(sq.changePct)} ${sq.change >= 0 ? '▲' : '▼'}` : '—'}
+              </span>
+            </span>
+          </div>
         ) : (
-          <>
-            {selected ? (
-              <div className="quote-bar" data-testid="quote-bar">
-                <span className="qb-seg">
-                  <span className="qb-label">股票代码</span>
-                  <span className="qb-value">{selected}</span>
-                </span>
-                <span className="qb-seg">
-                  <span className="qb-label">现价</span>
-                  <span className={`qb-value num ${scls}`}>{sq ? sq.price.toFixed(2) : '—'}</span>
-                </span>
-                <span className="qb-seg">
-                  <span className="qb-label">涨跌幅</span>
-                  <span className={`qb-value num ${scls}`}>
-                    {sq ? `${pctText(sq.changePct)} ${sq.change >= 0 ? '▲' : '▼'}` : '—'}
-                  </span>
-                </span>
-              </div>
-            ) : (
-              !loading && <p className="empty">添加自选后，这里显示分时与K线</p>
-            )}
+          !loading && <p className="empty">添加自选后，这里显示分时与K线</p>
+        )}
 
-            {children}
+        {children}
 
-            {adding && (
-              <AddStockModal
-                groups={groups}
-                onAdd={async (input) => {
-                  await add(input);
-                }}
-                onClose={() => setAdding(false)}
-              />
-            )}
-          </>
+        {adding && (
+          <AddStockModal
+            groups={groups}
+            onAdd={async (input) => {
+              await add(input);
+            }}
+            onClose={() => setAdding(false)}
+          />
         )}
       </div>
 
-      {/* 转移成功提示（2 秒自动消失；「全部」视图下也能确认已转走） */}
       {toast && (
         <div className="move-toast" role="status" data-testid="move-toast">
           {toast}

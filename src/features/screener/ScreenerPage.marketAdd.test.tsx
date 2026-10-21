@@ -5,11 +5,11 @@
 import { describe, it, expect, vi, afterEach } from 'vitest';
 import { render, screen, within, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { WatchlistPage } from './WatchlistPage';
+import { ScreenerPage } from './ScreenerPage';
 import { InMemoryStockRepository, type StockRepository } from '../../lib/repository';
 
 // 名单与结果数据内联在工厂里：vi.mock 提升到 imports 之前，工厂外引用会「初始化前访问」
-vi.mock('../screener/useMarketRoster', () => ({
+vi.mock('./useMarketRoster', () => ({
   useMarketRoster: () => ({
     stocks: [
       { id: 'r1', symbol: 'sh600000', name: '浦发银行', group: '观察' },
@@ -24,7 +24,7 @@ vi.mock('../screener/useMarketRoster', () => ({
   })
 }));
 
-vi.mock('../screener/useScreener', () => ({
+vi.mock('./useScreener', () => ({
   useScreener: () => ({
     rows: [
       {
@@ -58,11 +58,10 @@ vi.mock('../screener/useScreener', () => ({
 }));
 
 async function enterMarketScope(user: ReturnType<typeof userEvent.setup>) {
-  await user.click(screen.getByTestId('screener-entry'));
   await user.click(screen.getByRole('button', { name: '沪深A股' }));
 }
 
-describe('WatchlistPage 市场模式行内添加（2026-10-18，A 方案）', () => {
+describe('ScreenerPage 市场模式行内添加（2026-10-21 从自选页迁入）', () => {
   afterEach(() => {
     vi.unstubAllGlobals();
   });
@@ -71,7 +70,7 @@ describe('WatchlistPage 市场模式行内添加（2026-10-18，A 方案）', ()
     const user = userEvent.setup();
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('stubbed'))));
     const repo = new InMemoryStockRepository();
-    render(<WatchlistPage repo={repo} />);
+    render(<ScreenerPage repo={repo} />);
 
     await enterMarketScope(user);
     const row1 = await screen.findByTestId('screen-row-sh600000');
@@ -113,7 +112,7 @@ describe('WatchlistPage 市场模式行内添加（2026-10-18，A 方案）', ()
       async remove() {}
       async setGroup() {}
     }
-    render(<WatchlistPage repo={new FailingRepo()} />);
+    render(<ScreenerPage repo={new FailingRepo()} />);
 
     await enterMarketScope(user);
     const row1 = await screen.findByTestId('screen-row-sh600000');
@@ -131,7 +130,7 @@ describe('WatchlistPage 市场模式行内添加（2026-10-18，A 方案）', ()
     vi.stubGlobal('fetch', vi.fn(() => Promise.reject(new Error('stubbed'))));
     const repo = new InMemoryStockRepository();
     await repo.add({ symbol: 'sh600000', name: '浦发银行', group: '观察' });
-    render(<WatchlistPage repo={repo} />);
+    render(<ScreenerPage repo={repo} />);
 
     await enterMarketScope(user);
     expect(await screen.findByTestId('screen-added-sh600000')).toHaveTextContent('已观察');
